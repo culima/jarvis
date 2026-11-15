@@ -1162,8 +1162,8 @@
   // ---------------------------------------------------------------- flow
   // ---------------------------------------------------------------- step 0: look and size
   // Picked here, previewed on the guide right away, saved by the app (Settings has the same choices).
-  const LOOKS = [['classic', 'Roamie'], ['jarvis', 'JARVIS'], ['anime', 'Anime Girl'], ['sarah', 'Sarah'], ['adrian', 'Adrian'], ['rita', 'Rita X']], SIZES = [['default', 'Default'], ['small', 'Small'], ['cursor', 'Cursor']];
-  const LOOK_QUIPS = { classic: 'Classic me!', jarvis: 'At your service.', anime: 'Yay, hi hi!', sarah: 'Hey, nice to meet you!', adrian: 'Alright, let\'s do this.', rita: 'Shall we get to work?' }, SIZE_QUIPS = { default: 'Full size!', small: 'Fun size!', cursor: 'Tiny pointer me!' };
+  const LOOKS = [['jarvis', 'JARVIS']], SIZES = [['default', 'Default'], ['small', 'Small'], ['cursor', 'Cursor']];
+  const LOOK_QUIPS = { jarvis: 'At your service.' }, SIZE_QUIPS = { default: 'Full size!', small: 'Fun size!', cursor: 'Tiny pointer me!' };
   const look = {
     radios(id, list, value, pickIt) {
       $(id).replaceChildren(...list.map(([v, label]) => {
@@ -1175,8 +1175,9 @@
       }));
     },
     render() {
-      $('h-0').textContent = `Hi, I'm ${(LOOKS.find(([v]) => v === (state?.look ?? 'classic')) ?? LOOKS[0])[1]}.`;
-      look.radios('looks', LOOKS, state?.look ?? 'classic', (v) => { state.look = v; sidekick.setLook?.(v); send({ type: 'ob_look', look: v }); quip(LOOK_QUIPS[v]); look.render(); });
+      $('h-0').textContent = `Hi, I'm ${(LOOKS.find(([v]) => v === (state?.look ?? 'jarvis')) ?? LOOKS[0])[1]}.`;
+      $('looks').closest('.kline').style.display = LOOKS.length > 1 ? '' : 'none'; // one look: nothing to pick
+      look.radios('looks', LOOKS, state?.look ?? 'jarvis', (v) => { state.look = v; sidekick.setLook?.(v); send({ type: 'ob_look', look: v }); quip(LOOK_QUIPS[v]); look.render(); });
       look.radios('sizes', SIZES, state?.size ?? 'default', (v) => { state.size = v; sidekick.setForm?.(v); send({ type: 'ob_size', size: v }); quip(SIZE_QUIPS[v]); look.render(); });
     },
   };
@@ -1322,7 +1323,7 @@
     const sys = win ? { type: 'perms', mic: q.get('blocked') === '1' ? 'denied' : 'granted', input: true } : { type: 'perms', mic: pre, speech: old ? pre : 'granted', speechNeeded: old, screen: pre, accessibility: pre };
     const st = {
       // &filesAsked=1: Allow was tapped for the folders in an earlier run. &replies=voice&fish=1: voice already on.
-      kind: 'state', platform: q.get('platform') || 'darwin', step: +(q.get('step') || 0), sound: true, look: q.get('look') || 'classic', size: q.get('size') || 'default', voice: true, actions: false, login: true, filesAsked: q.get('filesAsked') === '1',
+      kind: 'state', platform: q.get('platform') || 'darwin', step: +(q.get('step') || 0), sound: true, look: q.get('look') || 'jarvis', size: q.get('size') || 'default', voice: true, actions: false, login: true, filesAsked: q.get('filesAsked') === '1',
       // &tts=gemini&gemini=1: Gemini as the voice, its key saved.
       replies: q.get('replies') === 'voice' ? 'voice' : 'text', fishKey: q.get('fish') === '1',
       bind: q.get('session') === 'wayland' ? Object.fromEntries(['summon', 'talk', 'ask', 'list', 'panel'].map((k) => [k, `'/home/sam/Apps/Roamies 0.1.33.AppImage' --${k}`])) : null,

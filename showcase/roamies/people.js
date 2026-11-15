@@ -21,108 +21,6 @@
   // eye: the viewer's-right eye's inner column (from the centre) and top row; mouth: its row; cy: the row of the
   // body point; fade: rows at the bottom that fade out.
   const ART = {
-    anime: {
-      L: {
-        w: 29, cy: 14, fade: 5, eye: [2, 12], mouth: 18, blush: [6, 17], tail: [5, 27],
-        patch: [[0, 14, 'hh'], [1, 14, 'h']],
-        rows: [
-          '...............', '...............', '..........hhhhh', '.......hhhHHHHH', '...ww.hhHHhhhhh', '..wwwwhhhhhhhhh',
-          '..twwwhhhhhhhhh', '.ttthhhhhhhhhhh', '.ttthhhhhhhhhhh', 'tttthhhhhshhhhh', 'tttthhhhssshhhh', 'ttTthhhssssshhs',
-          'ttTthhsssssssss', 'ttTthhsssssssss', 'ttTthhsssssssss', 'ttTt.hsssssssss', 'ttTt.hsssssssss', 'ttTt.hhssssssss',
-          'ttTt..hssssssss', 'ttTt..h.sssssss', 'tTtt.....ssssss', 'tTtt.......ssss', 'tTt.........zss', 'tTt.........zss',
-          'tTt.....kkkkkzs', '.tt...kkwwwkkkw', '.tt..kkwccccwkw', '.t..kkwcccccckw', '..kkkwccccccccc', '.kkkwcccccccccc',
-        ],
-      },
-      S: {
-        w: 17, cy: 8, fade: 3, eye: [2, 8], mouth: 11, blush: [4, 10], tail: [4, 16],
-        rows: ['........h', '.....hhhh', '..w.hhHHH', '.wwwhhhhh', 'tthhhhhhh', 'tthhhhhhh', 'tThhhshhs', 'tThhsssss', 'tThssssss', 'tThssssss', 'tT.hsssss', 'tT..sssss', 'tT....sss', 't......zs', 't....kkzs', '...kkwwkw', '.kwcccccc'],
-      },
-      X: {
-        w: 11, cy: 4, fade: 1, eye: [1, 3], mouth: 5, tail: [1, 7],
-        rows: ['....hh', 'w.hhhh', 'wwhhhh', 'thhsss', 'thssss', 'thssss', 't..sss', 't...zs', '..kkkw'],
-      },
-    },
-    sarah: {
-      L: {
-        w: 29, cy: 14, fade: 5, eye: [2, 12], mouth: 18, blush: [6, 16], earring: [9, 15], tail: [11, 27],
-        // A side parting on her left: the fringe sweeps across and down over the other side.
-        patch: [[7, 16, 'sss'], [8, 9, 'hhhhhh'], [8, 15, 'ssss'], [9, 8, 'hhhhh'], [10, 8, 'hhh'], [26, 14, '4']],
-        rows: [
-          '..........hhhhh', '........hhHHHHH', '......hhHHHhhhh', '.....hhHhhhhhhh', '....hhhhhhhhhhh', '....hhhhhhhhhhh',
-          '...hhhhhhhhhhhh', '...hhhhhhhhhhhh', '...hhhhhhhhhsss', '...hhhhhhhsssss', '...hhhhhsssssss', '..thhhhssssssss',
-          '..thhhsssssssss', '..thhhsssssssss', '..thhhsssssssss', '..thhhhssssssss', '..tthhhssssssss', '..tthhhhsssssss',
-          '..tthhhh.ssssss', '..tthhhh...ssss', '..tthhhh.....ss', '..tthhhh.....zs', '..tthhhh.....zs', '..tthhhhcccccss',
-          '..tthhhcccccccs', '.tthhhccccccccc', '.tthhcccccccccc', 'cthhccccccccccc', 'ccccccccccccccc', 'ccccccccccccccc',
-        ],
-      },
-      S: {
-        w: 17, cy: 8, fade: 3, eye: [2, 8], mouth: 11, tail: [7, 16],
-        patch: [[5, 5, 'hhhh'], [6, 5, 'hh'], [5, 10, 'ss']],
-        rows: ['.....hhhh', '...hhHHHH', '..hhHhhhh', '.hhhhhhhh', '.hhhhhhhh', '.hhhhhhss', '.hhhsssss', 'thhssssss', 'thhssssss', 'thhssssss', 'thhhsssss', 'thhh.ssss', 'thhh...ss', 'thhh...zs', 'thhhcccss', 'thccccccc', 'ccccccccc'],
-      },
-      X: {
-        w: 11, cy: 4, fade: 1, eye: [1, 3], mouth: 5, tail: [3, 8],
-        patch: [[2, 4, 'h'], [2, 6, 'ss']],
-        rows: ['..hhhh', '.hhhhh', 'hhhhss', 'hhssss', 'hhssss', 'thssss', 'th.sss', 'th..zs', 'tccccs'],
-      },
-    },
-    adrian: {
-      L: {
-        w: 29, cy: 14, fade: 5, eye: [2, 12], mouth: 19,
-        // The quiff, swept up and over to his right; a moustache.
-        patch: [[0, 9, 'hhhhhhhh'], [1, 8, 'hhHHH'], [2, 9, 'HH'], [18, 13, 'hhh']],
-        rows: [
-          '...............', '..........hhhhh', '........hhhHHHH', '.......hhhhhhhh', '......hhhhhhhhh', '......hhhhhhhhh',
-          '......hhhhhhhhh', '......hhhhsssss', '......hhsssssss', '......hssssssss', '.....zsssssssss', '....zzsssssssss',
-          '....zzsssssssss', '....zzsssssssss', '.....zsssssssss', '......sssssssss', '......hssssssss', '......hhsssssss',
-          '......hhhssssss', '.......hhhsssss', '........hhhhhhh', '..........hhhhh', '............zss', '............zss',
-          '......CCCCCCcck', '....CCCCCCCCCck', '...CCCCCCCCCCck', '..CCCCCCCCCCCck', '.CCCCCCCCCCCCck', 'CCCCCCCCCCCCCck',
-        ],
-      },
-      S: {
-        w: 17, cy: 8, fade: 3, eye: [2, 8], mouth: 11,
-        patch: [[0, 5, 'hhhh'], [1, 4, 'hhH'], [10, 7, 'hhh']],
-        rows: ['.........', '....hhhHH', '...hhhhhh', '..hhhhhhh', '..hhhhhhh', '..hhsssss', '..hssssss', '.zsssssss', '.zsssssss', '..sssssss', '..hssssss', '..hhsssss', '...hhhhhh', '.....hhhh', '.......zs', '..CCCCcck', 'CCCCCCcck'],
-      },
-      X: {
-        w: 11, cy: 4, fade: 1, eye: [1, 3], mouth: 5,
-        patch: [[0, 2, 'hh']],
-        rows: ['...hhh', '..hhHH', '.hhhhh', '.hssss', 'zsssss', '.sssss', '.hhsss', '..hhhh', '..CCck'],
-      },
-    },
-    // Rita X: long waves swept over her right shoulder, bright cat-eye glasses, a drop earring on the bare side, a
-    // beauty mark, a narrow jaw and fuller lips; a blazer over an open blouse.
-    rita: {
-      L: {
-        w: 29, cy: 14, fade: 5, eye: [2, 12], mouth: 18, blush: [6, 16], tail: [11, 29],
-        patch: [[15, 5, 'w'], [16, 5, 'w'], [17, 20, '0']],
-        over: [[11, 6, '4444444', true], [10, 5, '4', true], [12, 6, '4', true], [12, 13, '4', true], [12, 14, '4']],
-        mouths: {
-          closed: ['.1.1.', '00000', '.111.'], talk1: ['.111.', '.000.', '.111.'], talk2: ['.111.', '00000', '01110', '00000', '.111.'],
-          shout: ['.111.', '00000', '01110', '01110', '00000'], o: ['.1.', '0.0', '.0.'], frown: ['.111.', '00000', '0...0'],
-          grin: ['1.....1', '0000000', '0444440', '.00000.'], flat: ['.111.', '00000'],
-        },
-        rows: [
-          '.............................', '...........hhhhhhh...........', '.........hhhHHHHHhhh.........', '.......hhhHhhhhhhhhhhh.......', '......hhhhhhhhhhhhhhhhhh.....', '.....hhhhhhhhhhhhhhhhhhhh....',
-          '.....hhhhhhhhhhhhhhhhhhhhh...', '....hhhhhhhhhhhhhhhhhhhhhh...', '....hhhhhhhhhhhhhhhhhhhhhhh..', '....hhhhhhhhhhhhhhhhhhhhhhh..', '....hhhhssssssssshhhhhhhhhhh.', '....hhhsssssssssssshhhhhhhhht',
-          '....hhssssssssssssssssshhhhtt', '....hsssssssssssssssssshhhhtt', '.....sssssssssssssssssshhhhtt', '......ssssssssssssssssshhhTtt', '......ssssssssssssssssshhhTtt', '.......sssssssssssssss.hhTtt.',
-          '........sssssssssssss..hhTtt.', '.........sssssssssss..hhhTtt.', '..........sssssssss..hhhhTtt.', '............sssss...hhhhhTtt.', '.............zsz...hhhhhTtt..', '.............zsz..hhhhhTtt...',
-          '......CCCCkwzssswkhhhhTtt....', '....CCCCCCkwsssswkhhhTtt.....', '..CCCCCCCCCkwssswkCChTttCC...', '.CCCCCCCCCCkwszswkCCCtttCCCC.', 'CCCCCCCCCCCkwwzwwkCCCCttCCCCC', 'CCCCCCCCCCCCkwwwkCCCCCCCCCCCC',
-        ],
-      },
-      S: {
-        w: 17, cy: 8, fade: 3, eye: [2, 8], mouth: 11, blush: [4, 10], tail: [7, 16],
-        over: [[7, 4, '4444', true], [7, 8, '4'], [6, 3, '4', true], [8, 4, '4', true]],
-        rows: ['.................', '......hhhhh......', '....hhhHHHhhh....', '...hhhhhhhhhhh...', '...hhhhhhhhhhhh..', '..hhhhhhhhhhhhhh.', '..hhhssssshhhhhh.', '..hssssssssssshht', '..hssssssssssshtt', '..sssssssssssshtt', '..w.ssssssssshTt.', '....sssssssss.hTt', '.....sssssss.hhTt', '.......zsz..hhTt.', '....CCkwswkhhTt..', '..CCCCCkwkCCTtCC.', 'CCCCCCCkwkCCCtCCC'],
-      },
-      X: {
-        w: 11, cy: 4, fade: 1, eye: [1, 3], mouth: 5, tail: [3, 8],
-        over: [[2, 3, '44', true], [2, 5, '4']],
-        rows: ['...hhhhh...', '..hhhhhhhh.', '.hhhssshhhh', '.hssssssshT', '.sssssssshT', '..ssssssshT', '...ssssshTt', '....zszhTt.', '..CCkwkCtCC'],
-      },
-    },
-    // Ken Kai, who made Roamies (shown on the About page, not a look): a textured dark fringe over faded sides,
-    // and a hoodie with its drawstrings.
     ken: {
       L: {
         w: 29, cy: 14, fade: 5, eye: [2, 12], mouth: 18,
@@ -157,27 +55,7 @@
 
   // Eyes, drawn for the viewer's-right eye and mirrored for the left. Each: open, wide, shut, happy, dizzy, sleepy.
   const EYES = {
-    anime: {
-      L: { open: ['00000.', '044100', '01110.', '01220.', '.222..'], wide: ['00000.', '044100', '01110.', '01110.', '01220.', '.222..'], shut: ['......', '......', '000000', '.0....'], happy: ['......', '.000..', '0...0.'], dizzy: ['0...0', '.0.0.', '..0..', '.0.0.', '0...0'], sleepy: ['......', '......', '00000.'] },
-      S: { open: ['00', '40'], wide: ['00', '40', '00'], shut: ['..', '00'], happy: ['.0.', '0.0'], dizzy: ['0.0', '.0.', '0.0'], sleepy: ['..', '00'] },
-      X: { open: ['0', '0'], wide: ['0', '0'], shut: ['.', '0'], happy: ['0'], dizzy: ['0'], sleepy: ['.', '0'] },
-    },
-    sarah: {
-      L: { open: ['.000.', '04100', '.111.'], wide: ['.000.', '04100', '01100', '.000.'], shut: ['.....', '.....', '0000.'], happy: ['.....', '.000.', '0...0'], dizzy: ['0.0', '.0.', '0.0'], sleepy: ['.....', '.....', '.000.'] },
-      S: { open: ['00', '40'], wide: ['00', '40', '00'], shut: ['..', '00'], happy: ['.0.', '0.0'], dizzy: ['0.0', '.0.'], sleepy: ['..', '00'] },
-      X: { open: ['0', '0'], wide: ['0', '0'], shut: ['.', '0'], happy: ['0'], dizzy: ['0'], sleepy: ['.', '0'] },
-    },
-    rita: {
-      L: { open: ['.22200', '00000.', '04110.', '01110.', '.222..'], wide: ['.22200', '00000.', '04110.', '01110.', '01110.', '.222..'], shut: ['......', '......', '....00', '00000.', '.0.0..'], happy: ['......', '......', '.000.0', '0...0.'], dizzy: ['0...0', '.0.0.', '..0..', '.0.0.', '0...0'], sleepy: ['......', '......', '......', '00000.', '....00'] },
-      S: { open: ['00', '40'], wide: ['00', '40', '00'], shut: ['..', '00'], happy: ['.0.', '0.0'], dizzy: ['0.0', '.0.'], sleepy: ['..', '00'] },
-      X: { open: ['0', '0'], wide: ['0', '0'], shut: ['.', '0'], happy: ['0'], dizzy: ['0'], sleepy: ['.', '0'] },
-    },
     ken: {
-      L: { open: ['000', '040'], wide: ['000', '040', '000'], shut: ['...', '000'], happy: ['.0.', '0.0'], dizzy: ['0.0', '.0.', '0.0'], sleepy: ['...', '000'] },
-      S: { open: ['0', '0'], wide: ['0', '0', '0'], shut: ['.', '0'], happy: ['0'], dizzy: ['0'], sleepy: ['.', '0'] },
-      X: { open: ['0', '0'], wide: ['0', '0'], shut: ['.', '0'], happy: ['0'], dizzy: ['0'], sleepy: ['.', '0'] },
-    },
-    adrian: {
       L: { open: ['000', '040'], wide: ['000', '040', '000'], shut: ['...', '000'], happy: ['.0.', '0.0'], dizzy: ['0.0', '.0.', '0.0'], sleepy: ['...', '000'] },
       S: { open: ['0', '0'], wide: ['0', '0', '0'], shut: ['.', '0'], happy: ['0'], dizzy: ['0'], sleepy: ['.', '0'] },
       X: { open: ['0', '0'], wide: ['0', '0'], shut: ['.', '0'], happy: ['0'], dizzy: ['0'], sleepy: ['.', '0'] },
@@ -325,5 +203,5 @@
     },
   });
 
-  R.people = { anime: person('anime'), sarah: person('sarah'), adrian: person('adrian'), rita: person('rita'), ken: person('ken') };
+  R.people = { ken: person('ken') };
 })();

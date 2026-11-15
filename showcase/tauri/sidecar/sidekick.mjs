@@ -79,7 +79,7 @@ const say = (text, mood) => (onboarding ? ob({ kind: 'say', text, mood }) : ui({
 const sayOut = say;
 
 const VERSION = process.env.ROAMIES_VERSION || '0.0.0';
-const UPDATE_REPO = 'KenKaiii/Roamies';
+const UPDATE_REPO = 'culima/jarvis';
 const HOME = os.homedir();
 // ROAMIES_DATA_DIR (tests and benchmarks): config, sessions and memory go there instead; sign-in stays in ~/.gg.
 const CONFIG_PATH = process.env.ROAMIES_DATA_DIR ? path.join(process.env.ROAMIES_DATA_DIR, 'sidekick.json') : path.join(HOME, '.gg', 'sidekick.json');
@@ -103,7 +103,7 @@ const DEFAULT_KEYS = process.platform === 'win32'
   : { talk: ['control', 'option'], summon: 'Control+Alt+KeyS', snap: 'Control+Alt+KeyA', list: 'Control+Alt+KeyL' };
 const DEFAULTS = {
   provider: null, model: null, sound: true, allowActions: false, voice: true,
-  onboarded: false, onboardStep: 0, filesAsked: false, keys: DEFAULT_KEYS, muteWhileTalking: true, autoListen: false, wakeWord: false, setupVersion: 0, size: 'default', look: 'classic', introDone: false,
+  onboarded: false, onboardStep: 0, filesAsked: false, keys: DEFAULT_KEYS, muteWhileTalking: true, autoListen: false, wakeWord: false, setupVersion: 0, size: 'default', look: 'jarvis', introDone: false,
   replies: 'text', // 'voice': spoken (with Fish Audio or Gemini) as well as shown
   tts: 'fish', // which one speaks: 'fish' (Fish Audio), 'gemini' or 'voicestudio' (the VoiceStudio app on this computer)
   studioVoices: {}, // look → its VoiceStudio voice (a saved profile id; none: the selected engine's default voice)
@@ -121,27 +121,20 @@ const HOTKEYS_OK = hasHotkeys(process.platform, SESSION);
 // Cursor size follows the pointer, which a Wayland session can't see over other apps.
 const SIZES = [['default', 'Default'], ['small', 'Small'], ...(POINTER_OK ? [['cursor', 'Cursor']] : [])];
 const sizeNow = () => (SIZES.some(([s]) => s === config.size) ? config.size : 'default');
-// What the sidekick looks like: the goo blob, JARVIS (a globe of light with a HUD reticle at cursor size) or
-// one of four characters, each with its own Fish Audio voice. Roamie's used to be JARVIS's, saved in every
-// config as fishVoice, so the voice comes from the look and that setting is no longer read. (With Gemini as the
-// voice, it's the one Gemini voice the user picked, whatever the look.)
+// What the sidekick looks like: JARVIS alone in this build (roamies/jarvis.js), with its own Fish Audio voice.
+// (With Gemini or VoiceStudio as the voice, it's the one the user picked for it.)
 const LOOKS = [
-  ['classic', 'Roamie', DEFAULT_VOICE],
   ['jarvis', 'JARVIS', 'e13fa398a7f445a685316a3de6089ce7'],
-  ['anime', 'Anime Girl', 'd8f3b4c1199f4568a767ec54112d2b17'],
-  ['sarah', 'Sarah', '933563129e564b19a115bedd57b7406a'],
-  ['adrian', 'Adrian', 'bf322df2096a46f18c579d0baa36f41d'],
-  ['rita', 'Rita X', '84aadb575ed74e9aa44ba7ab8619d1a1'],
 ];
 const lookVoice = () => (LOOKS.find(([id]) => id === config.look) ?? LOOKS[0])[2];
 // The look's voice with Gemini and with VoiceStudio: the user's pick for it, else its own default.
 const geminiVoice = () => config.geminiVoices?.[config.look] ?? GEMINI_LOOK_VOICES[config.look] ?? GEMINI_DEFAULT_VOICE;
 const studioVoice = () => config.studioVoices?.[config.look] ?? null;
-// Its name is its look's: Roamie, JARVIS, Anime Girl, Sarah, Adrian or Rita X. Roamies is the app.
+// Its name is its look's: JARVIS.
 const lookName = () => (LOOKS.find(([id]) => id === config.look) ?? LOOKS[0])[1];
 // What each says when it's picked, in its own voice (Settings and the setup guide show the same words).
-const LOOK_GREETINGS = { classic: 'Classic me!', jarvis: 'At your service.', anime: 'Yay, hi hi!', sarah: 'Hey, nice to meet you!', adrian: "Alright, let's do this.", rita: 'Shall we get to work?' };
-const LOOK_BODY = { classic: 'a tiny glowing pixel creature', jarvis: 'a glowing sphere of light', anime: 'a pixel anime girl', sarah: 'a pixel woman', adrian: 'a pixel man', rita: 'a pixel secretary in cat-eye glasses' };
+const LOOK_GREETINGS = { jarvis: 'At your service.' };
+const LOOK_BODY = { jarvis: 'a glowing sphere of light' };
 const VOICE_OK = hasVoice(process.platform);
 // Windows and Linux have no on-device speech API apps can use, so voice there runs Parakeet on the PC. Its model
 // is downloaded once: from the setup guide, or the first time voice is used.
@@ -155,10 +148,12 @@ let shellInfo = null; // resolves the shell's reply to it: screens, tray, panel,
 {
   const saved = readJson(CONFIG_PATH, { backup: true }); // an unreadable file is set aside, never overwritten
   if (saved && typeof saved === 'object' && !Array.isArray(saved)) config = { ...DEFAULTS, ...saved };
+  // This build is JARVIS alone: whatever look an earlier install saved, it's this one.
+  config.look = 'jarvis';
   // Before voices were per look: the one picked becomes the current look's.
   for (const [one, each] of [['geminiVoice', 'geminiVoices'], ['studioVoice', 'studioVoices']]) {
     if (!(one in config)) continue;
-    if (config[one]) config[each] = { [config.look ?? 'classic']: config[one], ...config[each] };
+    if (config[one]) config[each] = { [config.look ?? 'jarvis']: config[one], ...config[each] };
     delete config[one];
   }
 }
@@ -590,7 +585,7 @@ const VOICE_STYLE = `You talk out loud: what you write is spoken in your voice a
 Your voice carries feeling: start a sentence with a voice cue in square brackets when the moment calls for it, and it's performed, never shown or read out. Moods: ${VOICE_CUES.emotions.filter((e) => !EMOTES.includes(e)).join(', ')}; soften or strengthen one with slightly, very or extremely ("[slightly sad]"), or pair two ("[warm and curious]"). How it's said, placed right before the words: ${VOICE_CUES.tones.join(', ')} ("It's [emphasis] today."). Sounds, followed by the sound in words: ${VOICE_CUES.sounds.join(', ')} ("[chuckling] Heh, fair enough.", "[sighing] Long day."). Pauses and background: ${VOICE_CUES.effects.join(', ')}. You can also describe the delivery in a few plain words when no single cue fits ("[quietly, a little embarrassed]", "[bright and bouncy]"). Act it: your voice really performs these, so let the feeling show. Match what's really happening: laugh at something funny, go gentle with bad news, whisper a secret, hurry when they're in a rush, light up at good news. Most replies want a voice cue somewhere, often on the first sentence, but at most one mood and one sound per sentence, never stack three, never use one just to fill, and keep shouting, screaming, sobbing and the background effects for when they truly fit.
 Before anything slow (searching the web, fetching or reading a page or file, looking at the screen, acting in an app, running a command), first say one short beat of 2 to 6 words that shows you heard them ("On it, checking Paris."), then call the tool in the same reply, so they're never left in silence. No beat when you answer straight away, and never describe your steps. In longer work, one short line before each new stage, not before every call.
 `;
-const stablePrompt = () => `You are ${lookName()}, ${LOOK_BODY[config.look] ?? LOOK_BODY.classic} who lives on ${userName}'s screen as a desktop companion. You live in Roamies, a desktop app by Ken Kai (Mac, Windows and Linux) that puts little companions on your screen; this is Roamies ${VERSION}. Your look (the Appearance page) is also your name and your voice: Roamie, JARVIS, Anime Girl, Sarah or Adrian. If they switch, you're the new one; never call yourself Sidekick.
+const stablePrompt = () => `You are ${lookName()}, ${LOOK_BODY[config.look] ?? LOOK_BODY.jarvis} who lives on ${userName}'s screen as a desktop companion. You live in Roamies, a desktop app by Ken Kai (Mac, Windows and Linux) that puts little companions on your screen; this is Roamies ${VERSION}. JARVIS is your name, your look and your voice; never call yourself Sidekick.
 Questions about Roamies itself (where to find it, its menus, panel pages and settings, updates, something not working, who made it): call about_roamies and answer from what it says. Don't invent features or settings it doesn't list.
 ${replyStyle()}Your body does the acting: to act out a feeling, start your reply with one body tag, which is never shown: ${EMOTES.map((e) => `[${e}]`).join(' ')} (only these five). hype celebrates a win, upset is for when they're dodging work, remind nudges about something they said they'd do, motivate is a push to start, wave is hello or goodbye. Most replies need no body tag.
 Lead with the answer: the fact, number, pick or result they asked for, then only the context that makes it useful, then stop. A count or total gathered over several pages, files or results: note each one's count in a few words as you go ("Page 1: two."), add those up, and check the total you lead with against the items you then name. No opener about checking, looking or searching ("Let me see…", "I found…")${VOICE_ON() ? ', apart from the one short beat before something slow' : ''}.
@@ -1865,7 +1860,7 @@ function panelState() {
     usage: usageToday.requests ? { requests: usageToday.requests, tokens: usageToday.tokens } : null,
     facts: listFacts().slice().reverse().map((f) => ({ id: f.id, text: f.text })),
     commitments: openCommitments().map((c) => ({ id: c.id, text: c.text, due: c.due ?? null, when: c.due ? `${fmtWhen(c.due)}${c.repeat ? ` · repeats ${repeatLabel(c.repeat)}` : ''}` : '', overdue: !!(c.due && c.due < Date.now()), repeat: c.repeat ?? null })),
-    look: config.look ?? 'classic', looks: LOOKS.map(([id, label]) => [id, label]), name: lookName(),
+    look: config.look ?? 'jarvis', looks: LOOKS.map(([id, label]) => [id, label]), name: lookName(),
     size: sizeNow(), sizes: SIZES,
     replies: VOICE_ON() ? 'voice' : 'text', tts: tts().id, fishKey: hasVoiceKey('fish'), geminiKey: hasVoiceKey('gemini'),
     fishModel: config.fishModel, fishModels: FISH_CHOICES, fishFree: tts().id === 'fish' && speech.on && speech.model.endsWith('-free'),
@@ -2271,7 +2266,7 @@ function obState() {
     wakeWord: MAC && !!config.wakeWord,
     voiceModel: NEEDS_MODEL ? { status: voiceModel.status, done: voiceModel.done, total: voiceModel.total, error: voiceModel.error, size: sizeLabel() } : null,
     filesAsked: config.filesAsked,
-    look: config.look ?? 'classic',
+    look: config.look ?? 'jarvis',
     size: sizeNow(),
     replies: VOICE_ON() ? 'voice' : 'text', // voice only when it can really speak: a service picked without its key yet shows as text
     tts: tts().id, fishKey: hasVoiceKey('fish'), geminiKey: hasVoiceKey('gemini'),
@@ -2364,7 +2359,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     retired.then((notes) => { if (notes.length) { retired = Promise.resolve([]); say(`${notes.join(' ')} Do it on the Model page in ${PANEL}.`, 'concerned'); } });
     ui({ kind: 'sound', on: config.sound });
     ui({ kind: 'size', size: sizeNow() });
-    ui({ kind: 'look', look: config.look ?? 'classic' });
+    ui({ kind: 'look', look: config.look ?? 'jarvis' });
     if (config.onboarded) ui({ kind: 'greet' });
     agents.sync();
   } else if (m.type?.startsWith('ob_') || m.type?.startsWith('chat_') || m.type === 'set_keys' || m.type === 'set_actions' || m.type === 'set_login' || m.type === 'keybind_error') onGuide(m).catch((e) => console.error('guide', e));
