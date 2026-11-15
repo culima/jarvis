@@ -49,7 +49,7 @@ for (const who of ['ken']) for (const size of ['default', 'small', 'cursor']) fo
 }
 assert.ok(!looks.some((m) => m[1] === 'ken'), 'Ken is not a pickable look');
 
-// JARVIS, the helix of code: draws at every size (large too) and in every state without throwing, round its centre, and
+// JARVIS, the globe of code: draws at every size (large too) and in every state without throwing, round its centre, and
 // keeps turning. Its cursor form and read-outs draw as well.
 {
   new Function(src('../../../roamies/jarvis.js'))();
@@ -61,7 +61,7 @@ assert.ok(!looks.some((m) => m[1] === 'ken'), 'Ken is not a pickable look');
     J.body(k, 100, 100, rad, st);
     return cells;
   };
-  for (const [size, rad] of [['small', 6.4], ['default', 12.75], ['large', 28]]) for (const state of [{}, { mode: 'talk', voice: 0.9 }, { mode: 'listen' }, { mode: 'think' }, { happy: 1 }, { open: 0 }, { dizzy: 1 }, { sleepy: 1 }, { act: 'hype', actA: 0.2 }, { act: 'upset', actA: 0.1 }]) {
+  for (const [size, rad] of [['small', 6.4], ['default', 12.75], ['large', 28], ['huge', 56]]) for (const state of [{}, { mode: 'talk', voice: 0.9 }, { mode: 'listen' }, { mode: 'think' }, { happy: 1 }, { open: 0 }, { dizzy: 1 }, { sleepy: 1 }, { act: 'hype', actA: 0.2 }, { act: 'upset', actA: 0.1 }]) {
     const cells = [...frame(rad, state, 1).keys()].map((c) => c.split(',').map(Number));
     assert.ok(cells.length > (state.sleepy ? 12 : 40), `JARVIS ${size} draws (${cells.length})`);
     const far = Math.max(...cells.map(([x, y]) => Math.hypot(x - 100, y - 100)));
@@ -69,7 +69,7 @@ assert.ok(!looks.some((m) => m[1] === 'ken'), 'Ken is not a pickable look');
   }
   assert.ok(frame(28, {}, 1).size > frame(12.75, {}, 1).size * 1.5, 'large shows more than default');
   // Made of code: hundreds of separate fragments, not a few solid shapes.
-  assert.ok(frame(28, {}, 1).size > 450, `the large helix is made of many parts (${frame(28, {}, 1).size} cells)`);
+  assert.ok(frame(28, {}, 1).size > 450, `the large globe is made of many parts (${frame(28, {}, 1).size} cells)`);
   for (let n = 0; n < 40; n++) for (const rad of [12.75, 28]) { const far = Math.max(...[...frame(rad, { mode: n % 2 ? 'think' : 'talk', voice: 0.9 }, n * 0.31).keys()].map((c) => Math.hypot(...c.split(',').map((v) => v - 100)))); assert.ok(far < rad * 2.2 + 6, `at any moment (${far.toFixed(1)} of ${rad})`); }
   const same = (a, b) => a.size === b.size && [...a].every(([c, l]) => b.get(c) === l);
   assert.ok(!same(frame(28, {}, 1), frame(28, {}, 1.5)), 'it turns: two moments differ');
@@ -82,8 +82,17 @@ assert.ok(!looks.some((m) => m[1] === 'ken'), 'Ken is not a pickable look');
   // The large size reaches the renderer, and a drawing gives it back afterwards.
   const kit = src('../../../roamies/10-dither.js');
   assert.match(kit, /form === 'large' \? 2\.2/, 'large is drawn larger');
-  assert.equal((kit.match(/\['small', 'large', 'cursor'\]\.includes/g) ?? []).length, 2, 'setForm and morph both know large');
-  assert.match(side, /\['large', 'Large'\], \['default', 'Default'\]/, 'and the app offers it');
+  assert.equal((kit.match(/\['small', 'large', 'huge', 'cursor'\]\.includes/g) ?? []).length, 2, 'setForm and morph both know large and huge');
+  assert.match(kit, /form === 'huge' \? 4\.4/, 'huge is twice large');
+  assert.match(side, /\['huge', 'Huge'\], \['large', 'Large'\], \['default', 'Default'\]/, 'and the app offers them');
+  // It opens with the voice: louder is wider, and silence closes it again.
+  const wide = (voice) => { const st = { t: 1, dt: 1 / 60, mode: 'talk', voice, act: null, actA: 0, open: 1, look: [0, 0], vx: 0, sq: 0, wide: 0, dizzy: 0, happy: 0, sleepy: 0 }; let far = 0; for (let n = 0; n < 40; n++) { st.t += 1 / 60; far = 0; J.body({ put: (x, y, l) => { if (l >= 2) far = Math.max(far, Math.hypot(x - 100, y - 100)); }, L: 4, th }, 100, 100, 28, st); } return far; };
+  assert.ok(wide(1) > wide(0) * 1.15, `the globe opens with the voice (${wide(0).toFixed(1)} quiet, ${wide(1).toFixed(1)} loud)`);
+  // Free by default: it keeps its own place and wanders, unless following is turned on.
+  const agentSrc = src('../../../roamies/agent.js');
+  assert.match(agentSrc, /const free = \(\) => R\.followCursor !== true;/);
+  assert.match(agentSrc, /const near = free\(\) \? null : besideCursor\(\);/, 'free: it does not pop up beside the cursor');
+  assert.match(src('../../../roamies/host.js'), /m\.kind === 'follow'/);
 }
 console.log('looks tests: passed');
 
@@ -94,7 +103,7 @@ assert.match(src('../../../desktop.html'), /canvas \{[^}]*-webkit-user-select: n
 {
   const agent = src('../../../roamies/agent.js'), rel = agent.slice(agent.indexOf('async release()'), agent.indexOf('place: (x, y) =>'));
   assert.match(agent, /pen\.follow = !!station\.byCursor/, 'take() remembers whether it was following the cursor');
-  assert.match(rel, /if \(pen\.follow && presence\.ptr\) station\.byCursor = presence\.ptr\.slice\(\)/, 'release() goes back to following');
+  assert.match(rel, /if \(pen\.follow && presence\.ptr && !free\(\)\) station\.byCursor = presence\.ptr\.slice\(\)/, 'release() goes back to following (when following is on)');
 }
 
 // The bubbles, tags and step list draw with glass.js, so the overlay loads it before them.

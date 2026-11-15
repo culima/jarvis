@@ -159,6 +159,8 @@ const WAKE_READ_EVERY: f64 = 0.5;
 const WAKE_WINDOW: f64 = 4.0;
 // Quiet this long ends what they were saying: the next thing said is read from its start.
 const WAKE_PAUSE: f64 = 0.9;
+// How long the last reading of something said may take before it's given up on.
+const WAKE_CLOSING: f64 = 4.0;
 // After a take, a moment before listening for the phrase again.
 const WAKE_COOLDOWN: f64 = 1.0;
 
@@ -238,6 +240,8 @@ struct Voice {
     // While waiting: when the thing being said began, and whether its start has been read without the phrase in it.
     utter_at: Option<f64>,
     gave_up: bool,
+    // What was said has had its last, whole reading asked for.
+    wake_closed: bool,
     // This take was started by the phrase, which took this many of its words: they aren't part of what was said.
     woke: bool,
     wake_words: usize,
@@ -282,6 +286,7 @@ impl Voice {
             wake_retry_at: 0.0,
             utter_at: None,
             gave_up: false,
+            wake_closed: false,
             woke: false,
             wake_words: 0,
             tx,
@@ -492,6 +497,7 @@ impl Voice {
         self.woke = false;
         self.utter_at = None;
         self.gave_up = false;
+        self.wake_closed = false;
         match self.open_audio() {
             Ok(()) => {
                 self.phase = Phase::Wake;
@@ -537,9 +543,32 @@ impl Voice {
         }
         let Some(began) = self.utter_at else { return self.keep_preroll() };
         if now - self.voice_at > WAKE_PAUSE {
-            // They stopped without the phrase: start fresh for the next thing said.
+            // They stopped. A short call ("Jarvis") is over before its first reading comes back, or was never read to
+            // its end: wait for the reading under way, read the whole of it once more, and only then start fresh for
+            // the next thing said.
+            if !self.gave_up {
+                if self.reading {
+                    if now - self.read_at < WAKE_CLOSING {
+                        return;
+                    }
+                } else if !self.wake_closed {
+                    self.wake_closed = true;
+                    let audio = self.buf.lock().unwrap().clone();
+                    if audio.len() >= RATE as usize / 2 {
+                        if let Some(engine) = &self.engine {
+                            self.read_at = now;
+                            self.read_len = audio.len();
+                            self.reading = engine.send(Job { take: self.take, audio, last: false }).is_ok();
+                            if self.reading {
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
             self.utter_at = None;
             self.gave_up = false;
+            self.wake_closed = false;
             self.take += 1;
             self.reading = false;
             return;
@@ -566,9 +595,16 @@ impl Voice {
 
     /// A reading of what's being said while waiting: with the phrase in it, this becomes a hands-free take.
     fn heard_while_waiting(&mut self, text: &str) {
-        let Some(hit) = self.wake.scan(text) else { return };
+        let Some(hit) = self.wake.scan(text) else {
+            // Never the words themselves: only that something was said and it wasn't the phrase.
+            if self.wake_closed {
+                log(&format!("wake: heard {} words, not the phrase", text.split_whitespace().count()));
+            }
+            return;
+        };
         let now = self.now();
         log("wake: heard the phrase");
+        self.wake_closed = false;
         self.woke = true;
         self.wake_words = hit.words;
         self.utter_at = None;
@@ -664,6 +700,8 @@ impl Voice {
             if self.phase == Phase::Wake && self.utter_at.is_none() {
                 self.utter_at = Some(now);
                 self.read_at = now;
+                self.read_len = 0;
+                self.wake_closed = false;
             }
         }
         if v > SPEECH_LEVEL && self.phase != Phase::Idle {
@@ -982,6 +1020,41 @@ mod tests {
         v.on_text(v.take, "Alright Jar this, open my browser please".into(), false);
         assert_eq!(v.best, "open my browser please", "even when the phrase is no longer heard as it was");
         let _ = std::fs::remove_file(wav);
+    }
+
+    #[test]
+    fn a_short_call_is_read_to_its_end_after_they_stop() {
+        let (mut v, jobs, wav) = voice();
+        v.handle(Ev::Cmd(json!({ "cmd": "wake", "on": true })));
+        v.tick();
+        v.on_level(0.5);
+        // "Jarvis", then silence: nothing was read while they spoke.
+        v.buf.lock().unwrap().resize(RATE as usize, 0.1);
+        v.voice_at = v.now() - 2.0;
+        v.tick();
+        let job = jobs.try_recv().expect("the whole of it is read once they stop");
+        assert_eq!(v.phase, Phase::Wake);
+        assert!(v.utter_at.is_some(), "and it waits for that reading");
+        v.tick();
+        assert!(jobs.try_recv().is_err(), "without asking again");
+        v.on_text(job.take, "Javis".into(), false);
+        assert_eq!(v.phase, Phase::HandsFree, "the reading wakes it, though they've stopped talking");
+        // Something else said: after its last reading it starts fresh.
+        let (mut v, jobs, wav2) = voice();
+        v.handle(Ev::Cmd(json!({ "cmd": "wake", "on": true })));
+        v.tick();
+        v.on_level(0.5);
+        v.buf.lock().unwrap().resize(RATE as usize, 0.1);
+        v.voice_at = v.now() - 2.0;
+        v.tick();
+        let job = jobs.try_recv().expect("a last reading");
+        v.on_text(job.take, "Nice weather".into(), false);
+        v.voice_at = v.now() - 2.0;
+        v.tick();
+        assert_eq!(v.phase, Phase::Wake);
+        assert!(v.utter_at.is_none(), "fresh for the next thing said");
+        let _ = std::fs::remove_file(wav);
+        let _ = std::fs::remove_file(wav2);
     }
 
     #[test]

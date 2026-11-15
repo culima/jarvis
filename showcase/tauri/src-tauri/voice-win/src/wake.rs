@@ -127,15 +127,28 @@ impl WakeWord {
         heard.chars().next() == self.name.chars().next() && heard.chars().count() + 1 >= self.name.chars().count()
     }
 
+    /// Whether a heard word is the name. A name of the user's own: within the allowed edits, with the same first
+    /// letter and about as long. Jarvis, the default, is heard in many ways ("Javis", "Javas", "Jarvas", "Jervis",
+    /// "Charvis", "Yarvis"), so it gets its own, wider rule: it starts with a J sound, has the V in it, is 4 to 8
+    /// letters and within two edits. "Travis", "Davis", "Java" and "service" stay out.
+    fn is_name(&self, heard: &str, joined: bool) -> bool {
+        if self.name != DEFAULT_NAME {
+            let allowed = self.allowed_edits() as isize - isize::from(joined);
+            return (edits(heard, &self.name) as isize) <= allowed && self.plausible(heard);
+        }
+        let j = ["ch", "dj", "dsch", "g", "y"].iter().find_map(|p| heard.strip_prefix(p).map(|rest| format!("j{rest}"))).unwrap_or_else(|| heard.to_string());
+        let len = j.chars().count();
+        j.starts_with('j') && (4..=8).contains(&len) && j.contains(['v', 'f', 'w', 'b']) && edits(&j, DEFAULT_NAME) <= if joined || len < 5 { 1 } else { 2 }
+    }
+
     /// The name as heard at word i: as one word, or split in two ("Jar vis"), which must then be a closer match.
     /// Returns the index of its last word.
     fn name_at(&self, words: &[Tok], i: usize) -> Option<usize> {
-        let allowed = self.allowed_edits() as isize;
-        let mut heard = vec![(words[i].word.clone(), i, allowed)];
-        if let Some(next) = words.get(i + 1) {
-            heard.push((format!("{}{}", words[i].word, next.word), i + 1, allowed - 1));
+        if self.is_name(&words[i].word, false) {
+            return Some(i);
         }
-        heard.into_iter().find(|(word, _, allowed)| (edits(word, &self.name) as isize) <= *allowed && self.plausible(word)).map(|h| h.1)
+        let next = words.get(i + 1)?;
+        self.is_name(&format!("{}{}", words[i].word, next.word), true).then_some(i + 1)
     }
 
     fn hit(text: &str, words: &[Tok], last: usize) -> Hit {
@@ -212,6 +225,17 @@ mod tests {
         assert_eq!(WakeWord::new().scan("Okay Jarvis go on").map(|h| h.words), Some(2));
         assert_eq!(rest("So yesterday Jarvis told me a joke"), None, "not in the middle of a sentence");
         assert_eq!(rest("Travis, what time is it"), None, "another name");
+    }
+
+    #[test]
+    fn jarvis_is_heard_in_many_ways() {
+        for heard in ["Javis", "Javas", "Jarvas", "Jarves", "Jarvus", "Jervis", "Jarviz", "Charvis", "Yarvis", "Jarvis's", "Jarfis", "Jarbis"] {
+            assert_eq!(rest(&format!("{heard}, what time is it")), Some("what time is it".into()), "{heard} alone");
+            assert_eq!(rest(&format!("Alright {heard}, what time is it")), Some("what time is it".into()), "alright {heard}");
+        }
+        for other in ["Travis", "Davis", "Java", "Jarring", "Service", "Jealous", "Chavez", "Jar", "Jobs", "Harvest", "Nervous"] {
+            assert_eq!(rest(&format!("{other}, what time is it")), None, "{other} is not the name");
+        }
     }
 
     #[test]

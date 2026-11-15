@@ -1,10 +1,9 @@
-// JARVIS look for the sidekick: no face and no body. A double helix written in code: two strands of fragments
-// (specks, words, and letters of code on the nearest ones) climbing and turning round a lit heart, lines of code
-// strung between them, and a haze of code round it: hundreds of separate pieces. The voice sends ripples up the
-// helix, thought spins it and unzips it (the lines break in the middle) with pulses running up the strands, asleep
-// it coils small and dim; loose snippets drift off it and fade.
-// The cursor form is a HUD reticle, and the moments the goo blob acts out (heart, bolt, alarm, anger, flame)
-// become HUD read-outs here.
+// JARVIS look for the sidekick: no face and no body. A globe made of code: hundreds of separate fragments (specks,
+// words, and letters of code on the nearest ones) on three shells round a lit heart, in bands that drift at their own
+// paces. It opens and closes with the voice, syllable by syllable; in thought the bands race against each other and
+// the letters are rewritten; asleep it draws in small and dim; loose snippets drift off it and fade.
+// Drawing, and at the Cursor size, it is the same globe, small, with a tick at its tip; the moments the goo blob acts
+// out (heart, bolt, alarm, anger, flame) become HUD read-outs here.
 // Everything else (following, bubbles, tools, sizes) is the same sidekick; 10-dither.js calls into this when
 // the look is 'jarvis'. Pure drawing: it only writes LED cells through the kit it's given.
 (() => {
@@ -16,15 +15,15 @@
   const unit = (v) => { const n = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / n, v[1] / n, v[2] / n]; };
   // A repeatable stream of numbers from a seed.
   const stream = (seed) => { let s = (seed * 2654435761) >>> 0; return () => (s = (Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9) >>> 0) >>> 9; };
-  // The fragments: each a snippet of code with its own height on the helix (y, -1 to 1, spread evenly so any first
-  // part of the list covers the whole height: smaller sizes draw fewer), its offset from the strand's line (rho),
-  // its angle and moment (phi), length, letter, and how far it flies when the helix comes apart.
+  // The fragments: each a snippet of code with its own shell (most on the outer one, some on two inner ones), moment
+  // (phi), length, letter, and how far it stands off when the voice opens the globe. Their places on the globe come
+  // from their number, so however many a size draws, they cover it evenly.
   const FRAGS = (() => {
-    const next = stream(20261115), n = 440;
-    return Array.from({ length: n }, (_, i) => ({
-      y: (((i >> 1) * 0.6180339887) % 1) * 2 - 1, phi: (next() % 6283) / 1000, rho: (next() % 1000) / 1000,
-      len: next() % 4, glyph: next() % 97, kind: (next() % 1000) / 1000, far: (next() % 1000) / 1000,
-    }));
+    const next = stream(20261116);
+    return Array.from({ length: 1900 }, () => {
+      const pick = next() % 100;
+      return { shell: pick < 62 ? 1 : pick < 88 ? 0.76 : 0.52, phi: (next() % 6283) / 1000, len: next() % 4, glyph: next() % 97, kind: (next() % 1000) / 1000, far: (next() % 1000) / 1000 };
+    });
   })();
   // Letters of code, 3 by 5 cells, for the nearest fragments.
   const GLYPHS = [
@@ -64,95 +63,65 @@
       return 0.12 + 0.05 * Math.sin(t * 1.4);
     },
 
-    // The body: a double helix written in code. st: { t, mode, act, actA, open, look:[x,y], speed, sq, wide, dizzy, sleepy }
+    // The body: a globe made of code. st: { t, mode, voice, act, actA, open, look:[x,y], speed, sq, wide, dizzy, sleepy }
     // cx, cy are cells; rad the radius in cells. put(x, y, level) writes a cell, the brightest write wins.
-    body(k, cx, cy, rad, st) {
+    body(k, cx, cy, rad, st) { this.globe(k, cx, cy, rad, st, false); },
+
+    // The globe itself, at any size (the cursor form is a small one). Hundreds of separate fragments of code (specks,
+    // words, and letters on the nearest ones) sit on three shells round the heart, in bands that drift round at their
+    // own paces. It swells and closes with the voice, syllable by syllable; in thought every band races its own way
+    // and the letters are rewritten as fast as they can be read; asleep it draws in small and dim.
+    globe(k, cx, cy, rad, st, mini) {
       const { put, L, th } = k, t = st.t, dt = st.dt ?? 0.016;
       const v = this.level(st);
       const mode = st.mode, A = st.act;
       const sleepy = st.sleepy > 0.5, talking = mode === 'talk' || mode === 'listen', thinking = mode === 'think';
-      // The helix turns on its axis and its code climbs it: faster with the voice, fastest in thought.
-      st.spin = (st.spin ?? 0) + (thinking ? 2.4 : A === 'hype' ? 5 : sleepy ? 0.12 : talking ? 1.1 : 0.55) * dt;
-      st.flow = (st.flow ?? 0) + (thinking ? 0.5 : A === 'hype' ? 0.9 : sleepy ? 0.02 : talking ? 0.16 + v * 0.2 : 0.07) * dt;
-      // Apart: how far the two strands stand from each other. In thought the helix unzips (the lines of code
-      // between the strands break in the middle), a cheer pops it, the voice breathes it. Fold: asleep it coils small.
-      const apart = sleepy ? 0 : thinking ? 0.5 + 0.12 * Math.sin(t * 2.6) : A === 'hype' ? 0.4 * Math.abs(Math.sin(t * 6.5)) : talking ? 0.1 * v : 0.02 + 0.02 * Math.sin(t * 1.4);
-      st.apart = (st.apart ?? 0) + (apart - (st.apart ?? 0)) * Math.min(1, dt * 6);
+      // Turn: the whole globe, slowly. Churn: the bands against each other, a crawl at rest and a race in thought.
+      st.spin = (st.spin ?? 0) + (thinking ? 0.9 : A === 'hype' ? 3.2 : sleepy ? 0.05 : talking ? 0.4 : 0.24) * dt;
+      st.churn = (st.churn ?? 0) + (thinking ? 4.6 : A === 'hype' ? 2.4 : sleepy ? 0 : talking ? 0.3 + v * 0.5 : 0.1) * dt;
+      // Swell: how far it has opened. It follows the voice closely (out fast, back a little slower), so it opens
+      // on each syllable and closes in the gaps; a cheer pops it, thought holds it a touch open.
+      const want = sleepy ? -0.12 : talking ? 0.42 * v : A === 'hype' ? 0.3 * Math.abs(Math.sin(t * 6.5)) : thinking ? 0.08 + 0.04 * Math.sin(t * 9) : 0.02 * Math.sin(t * 1.4);
+      const was = st.swell ?? 0;
+      st.swell = was + (want - was) * Math.min(1, dt * (want > was ? 26 : 12));
       st.fold = (st.fold ?? 0) + ((sleepy ? 1 : 0) - (st.fold ?? 0)) * Math.min(1, dt * 3);
-      const fold = st.fold, ex = st.apart, dim = fold > 0.5 ? 1 : 0;
+      const fold = st.fold, swell = st.swell, dim = fold > 0.5 ? 1 : 0;
       const wobble = st.dizzy > 0.5 ? Math.sin(t * 9) * 0.3 : 0;
-      // It leans a little, toward where it's looking, and sways.
-      const lean = turner(0, 0.16 * Math.sin(t * 0.41) + st.look[1] * 0.2, 0.2 + 0.1 * Math.sin(t * 0.53) + st.look[0] * 0.28 + wobble);
+      // It tips toward where it's looking, and sways.
+      const lean = turner(st.look[0] * 0.45, -0.3 + 0.08 * Math.sin(t * 0.41) + st.look[1] * 0.25 + wobble, 0.12 * Math.sin(t * 0.53));
       // Squash from the body's bounces, and a shake when it's upset.
-      const sx = 1 + st.sq * 0.05, sy = 1 - st.sq * 0.04;
-      const shake = A === 'upset' && st.actA % 0.9 < 0.32 ? Math.sin(t * 48) * 0.6 : 0;
-      const size = rad * (1 - fold * 0.5) * (1 + (sleepy ? 0.03 : 0.012) * Math.sin(t * 1.4)) * (A === 'hype' ? 1.08 : 1);
-      // A turned point on screen: cells, with its depth (toward the viewer is positive). A touch of perspective.
-      const at = (q) => { const s = 1 + q[2] * 0.16; return [cx + q[0] * size * s * sx + shake, cy + q[1] * size * s * sy, q[2]]; };
-      // Detail by size: how many fragments on the strands, lines between them and specks around, and whether the
-      // nearest fragments are written out as letters of code.
-      // (In cells the body's radius is about 6 small, 13 default and 28 large.)
-      const big = rad >= 20, mid = rad >= 11;
-      const beads = big ? 180 : mid ? 96 : 50, rungs = big ? 34 : mid ? 16 : 8, specks = big ? 130 : mid ? 44 : 0, letters = rad >= 18;
-      const TURNS = 1.85 * Math.PI, TALL = 1.3, WIDE = 0.5;
-      // A point of a strand at height y (-1 bottom to 1 top): the helix is widest in the middle and narrows to its
-      // ends; the voice sends ripples up it.
-      const strand = (y, which, off) => {
-        const ripple = talking ? v * 0.3 * Math.sin(y * 7 - t * (mode === 'talk' ? 10 : 5)) : 0;
-        const r = WIDE * Math.sqrt(Math.max(0.08, 1 - y * y * 0.74)) * (1 + ripple) * (1 + ex * 0.75) + off;
-        const a = y * TURNS + st.spin + which * Math.PI;
-        return lean([Math.sin(a) * r, -y * TALL, Math.cos(a) * r]);
-      };
-      // Everything climbs: a height that wraps from the top back to the bottom.
-      const climb = (y0) => (((y0 + st.flow + 1) % 2) + 2) % 2 - 1;
-      // In thought, pulses of light run up the strands.
-      const pulse = (y) => { if (!thinking) return false; const d = ((y - t * 1.6) % 0.7 + 0.7) % 0.7; return d < 0.09; };
-      // The lines of code between the strands, drawn first so the strands lie over their ends: each a row of short
-      // words with its own indent and length. Unzipped, each line breaks in the middle and its halves hang from
-      // their strands. In thought the lines are rewritten again and again.
-      for (let j = 0; j < rungs; j++) {
-        const y = climb(((j + 0.5) / rungs) * 2 - 1), edge = 1 - Math.abs(y);
-        if (edge < 0.06) continue;
-        const a = at(strand(y, 0, 0)), b = at(strand(y, 1, 0));
-        const len = Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]));
-        if (len < 4) continue;
-        const next = stream(j * 977 + (thinking ? Math.floor(t * 5) * 131 : 0) + 7);
-        let pos = 1 + (next() % 3);
-        while (pos < len - 1) {
-          const word = 1 + (next() % 4), lit = next() % 6 === 0 || (talking && v > 0.55 && next() % 4 === 0);
-          for (let w = 0; w < word && pos + w < len - 1; w++) {
-            const f = (pos + w) / len;
-            if (Math.abs(f - 0.5) < ex * 0.42) continue; // unzipped
-            const x = a[0] + (b[0] - a[0]) * f, y2 = a[1] + (b[1] - a[1]) * f, z = a[2] + (b[2] - a[2]) * f;
-            if (z < -0.3 || edge < 0.14) { if (th(Math.floor(x), Math.floor(y2)) < 0.6) put(x, y2, 1); continue; }
-            put(x, y2, clamp((z > 0.1 ? 3 : 2) + (lit ? 1 : 0) - dim - (z < -0.1 ? 1 : 0), 1, L - 1));
-          }
-          pos += word + 1 + (next() % 2);
-        }
+      const sq = st.sq ?? 0, sx = 1 + sq * 0.05, sy = 1 - sq * 0.04;
+      const shake = A === 'upset' && (st.actA ?? 0) % 0.9 < 0.32 ? Math.sin(t * 48) * 0.6 : 0;
+      const size = rad * (1 - fold * 0.4) * (1 + swell);
+      // Detail by size: the fragments cover the globe about as densely at every size, and the nearest are written
+      // out as letters of code once there's room. (In cells the radius is about 6 small, 13 default, 28 large, 56 huge.)
+      const count = Math.round(clamp(rad * rad * 0.62, mini ? 46 : 96, FRAGS.length)), letters = rad >= 18, words = rad >= 11;
+      const BANDS = rad >= 40 ? 15 : rad >= 20 ? 11 : 7;
+      // In thought, a bright front sweeps over the globe from pole to pole.
+      const front = thinking ? ((t * 1.3) % 1) * 2.4 - 1.2 : 9;
+      for (let i = 0; i < count; i++) {
+        const f = FRAGS[i];
+        // Its place: spread evenly over the globe (a golden spiral), on its shell, in its band.
+        const y = 1 - (2 * (i + 0.5)) / count, ring = Math.sqrt(1 - y * y), band = Math.floor(((y + 1) / 2) * BANDS);
+        const way = band % 2 ? 1 : -1, own = 0.6 + ((band * 7) % 5) * 0.22;
+        // In thought the fragments also jump about in their bands; with the voice each stands off a little further.
+        const jump = thinking ? 0.22 * Math.sin(t * (11 + f.kind * 9) + f.phi) : 0;
+        const lon = i * 2.399963 + st.spin * (0.8 + own * 0.25) + st.churn * way * own + jump;
+        const r = f.shell * (1 + (talking ? v * f.far * 0.16 : 0) + (thinking ? 0.05 * Math.sin(t * 14 + f.phi) : 0));
+        const q = lean([Math.cos(lon) * ring * r, y * r, Math.sin(lon) * ring * r]);
+        const s = 1 + q[2] * 0.16, x = Math.round(cx + q[0] * size * s * sx + shake), yy = Math.round(cy + q[1] * size * s * sy), z = q[2];
+        const lit = Math.abs(y - front) < 0.12 || (st.happy > 0.5 && i % 7 === 0) || (talking && v > 0.55 && (i + Math.floor(t * 9)) % 8 === 0) || (i + Math.floor(t * 1.7 + f.phi)) % 23 === 0;
+        // Far fragments are specks, nearer ones dashes (a word), the nearest are written out: a letter of code.
+        // The far side shows through only as a scatter, so the heart is seen through the gaps.
+        if (z < -0.25) { if (th(x, yy) < 0.34 + z * 0.2) put(x, yy, 1); continue; }
+        if (z < 0.15 || !words) { for (let w = 0; w <= (words ? f.len % 2 : 0); w++) put(x + w, yy, clamp((z > -0.05 ? 2 : 1) + (lit ? 1 : 0) - dim, 1, L - 1)); continue; }
+        if (z < 0.5 || !letters || f.kind > 0.4) { for (let w = 0; w < 1 + (f.len % 3); w++) put(x + w, yy, clamp((z > 0.4 ? 3 : 2) + (lit ? 1 : 0) - dim, 1, L - (lit ? 0 : 1))); continue; }
+        // In thought the letters are rewritten over and over.
+        const rows = GLYPHS[(f.glyph + (thinking ? Math.floor(t * 14 + f.phi) : 0)) % GLYPHS.length], lvl = clamp(3 + (lit ? 1 : 0) - dim, 1, L);
+        for (let gr = 0; gr < 5; gr++) for (let c = 0; c < 3; c++) if (rows[gr][c] === '#') put(x + c - 1, yy + gr - 2, lvl);
       }
-      // The strands: fragments of code strung along both, climbing. Far ones are specks, nearer ones dashes (a
-      // word), the nearest are written out: a letter or two of code.
-      for (let i = 0; i < beads; i++) {
-        const f = FRAGS[i], y = climb(f.y), edge = 1 - Math.abs(y);
-        const q = strand(y, i & 1, (f.rho - 0.55) * 0.16 * (1 + ex * 3 * f.far));
-        const s = at(q), x = Math.round(s[0]), yy = Math.round(s[1]), z = q[2];
-        const lit = pulse(y) || (st.happy > 0.5 && i % 7 === 0) || (talking && v > 0.6 && (i + Math.floor(t * 8)) % 9 === 0) || (i + Math.floor(t * 1.7 + f.phi)) % 23 === 0;
-        if (edge < 0.1) { if (th(x, yy) < edge * 8) put(x, yy, 1); continue; }
-        if (z < -0.22) { if (th(x, yy) < 0.8) put(x, yy, lit ? 2 : 1); continue; }
-        if (z < 0.1 || !mid) { for (let w = 0; w <= (big ? 1 + (f.len % 2) : mid ? f.len % 2 : 0); w++) put(x + w, yy, clamp(2 + (lit ? 1 : 0) - dim, 1, L - 1)); continue; }
-        if (z < 0.24 || !letters || f.kind > 0.42) { for (let w = 0; w < (big ? 2 + (f.len % 3) : 1 + (f.len % 2)); w++) put(x + w, yy, clamp(3 + (lit ? 1 : 0) - dim, 1, L)); continue; }
-        const lvl = clamp(3 + (lit ? 1 : 0) - dim, 1, L), rows = GLYPHS[f.glyph % GLYPHS.length];
-        for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (rows[r][c] === '#') put(x + c - 1, yy + r - 2, lvl);
-      }
-      // A haze of code round it: specks and short words on slow, wide orbits, the near ones brighter.
-      for (let i = 0; i < specks && !dim; i++) {
-        const f = FRAGS[FRAGS.length - 1 - i], y = climb(f.y * 0.999 + i * 0.37) * 0.92;
-        const r = (0.82 + f.far * 0.42) * Math.sqrt(Math.max(0.1, 1 - y * y * 0.6)) * (1 + ex * 0.4), a = f.phi + st.spin * (0.25 + f.kind * 0.3) * (i & 1 ? 1 : -1);
-        const q = lean([Math.sin(a) * r, -y * TALL * 0.95, Math.cos(a) * r]), s = at(q), x = Math.round(s[0]), yy = Math.round(s[1]);
-        if (q[2] < 0) { if (th(x, yy) < 0.45) put(x, yy, 1); continue; }
-        for (let w = 0; w <= f.len % 3; w++) put(x + w, yy, q[2] > 0.5 && f.kind > 0.6 ? 2 : 1);
-      }
-      // The heart, between the strands: a bright diamond that swells with the voice, follows the cursor a little,
+      if (mini) return;
+      // The heart, inside the globe: a bright diamond that swells with the voice, follows the cursor a little,
       // closes to a line on a blink and dims to a dot asleep.
       const open = st.open;
       const hr = Math.max(1, Math.round(rad * (sleepy ? 0.06 : 0.09 + v * 0.05) * (A === 'hype' ? 1.25 : 1)));
@@ -165,15 +134,15 @@
       }
       if (hh === 0) for (let x = -hr; x <= hr; x++) put(hx + x, hy, L);
       if (sleepy) return;
-      // Loose snippets: short words of code that leave the helix, drift outward and fade, more of them while it
+      // Loose snippets: short words of code that leave the globe, drift outward and fade, more of them while it
       // talks or thinks. Each has its own direction, length and moment.
-      if (mid) {
-        const many = (thinking ? 22 : talking ? 18 : 10) * (big ? 1 : 0.5), life = 2.6;
+      if (words) {
+        const many = (thinking ? 26 : talking ? 18 : 9) * (rad >= 40 ? 1.8 : rad >= 20 ? 1 : 0.5), life = thinking ? 1.3 : 2.6;
         for (let n = 0; n < many; n++) {
           const born = Math.floor((t + n * 0.37) / life), age = ((t + n * 0.37) % life) / life;
           const next = stream(n * 7919 + born * 104729);
-          const ang = (next() % 6283) / 1000, word = 2 + (next() % 4), start = 1.12 + (next() % 20) / 100;
-          const d = rad * (start + age * (0.4 + (next() % 30) / 100));
+          const ang = (next() % 6283) / 1000, word = 2 + (next() % 4), start = 1.1 + swell + (next() % 20) / 100;
+          const d = rad * (start + age * (0.3 + (next() % 30) / 100));
           const x0 = cx + Math.cos(ang) * d, y0 = cy + Math.sin(ang) * d * 0.92;
           const lvl = age < 0.15 ? 3 : age < 0.5 ? 2 : 1;
           for (let w = 0; w < word; w++) { if (age > 0.7 && th(Math.floor(x0 + w), Math.floor(y0)) < age - 0.25) continue; put(x0 + w, y0, lvl); }
@@ -181,40 +150,17 @@
       }
     },
 
-    // Cursor form: a HUD reticle round the body point (cx, cy), its lit heart in the middle and a tick at the
-    // hotspot (hx, hy), where the arrow's tip would be. It holds still at rest (the native follower shows a still
-    // picture of it while it follows); it turns while it thinks or talks.
+    // Cursor form (the pen it draws with, and the Cursor size): the same globe of code, small, round the body point
+    // (cx, cy), with a bright tick from the hotspot (hx, hy), where the arrow's tip would be, so it still reads as a
+    // pointer. Its heart closes to a line on a blink and dims asleep.
     cursor(k, cx, cy, hx, hy, st) {
-      const { put, L } = k, t = st.t, v = this.level(st), A = st.act;
-      const busy = st.mode === 'think' || st.mode === 'talk' || st.mode === 'listen' || !!A;
-      const spin = busy ? (st.spin = (st.spin ?? 0) + (st.mode === 'think' ? 2.4 : 0.9) * (st.dt ?? 0.016)) : (st.spin ?? 0);
-      // Four ring arcs with gaps; the voice pushes them out a touch.
-      const r = 4.6 + (st.mode === 'talk' || st.mode === 'listen' ? v * 1.1 : 0) + (A === 'hype' ? 0.8 * Math.abs(Math.sin(t * 6.5)) : 0);
-      for (let i = 0; i < 64; i++) {
-        if (((i + 4) % 16) < 3) continue;
-        const a = (i / 64) * TAU + spin;
-        put(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 3);
-      }
-      // Bracket ticks at the diagonals.
-      for (let q = 0; q < 4; q++) {
-        const a = q * (TAU / 4) + TAU / 8 - spin * 0.3;
-        for (let d = 6.4; d <= 7.4; d += 0.5) put(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 2);
-      }
-      // The heart: a dot that closes to a line on a blink and dims asleep; a cross while it talks.
-      const sleepy = st.sleepy > 0.5;
-      if (sleepy) put(cx, cy, 2);
+      const { put, L } = k;
+      this.globe(k, cx, cy, 5.4, st, true);
+      if (st.sleepy > 0.5) put(cx, cy, 2);
       else if (st.open < 0.35) { put(cx - 1, cy, L - 1); put(cx, cy, L); put(cx + 1, cy, L - 1); }
-      else {
-        put(cx, cy, L); put(cx + 1, cy, L - 1); put(cx - 1, cy, L - 1); put(cx, cy + 1, L - 1); put(cx, cy - 1, L - 1);
-        if (st.mode === 'talk' && v > 0.55) for (const [dx, dy] of [[1, 1], [-1, -1], [1, -1], [-1, 1]]) put(cx + dx, cy + dy, 2);
-      }
-      // Dizzy: the heart wanders; happy: a little arc of light over it.
-      if (st.happy > 0.5) for (let i = -2; i <= 2; i++) put(cx + i, cy - 2 - (Math.abs(i) === 2 ? 0 : 1), 3);
-      // The hotspot: a short bright tick from the tip toward the ring, so it still reads as a pointer.
+      else { put(cx, cy, L); put(cx + 1, cy, L - 1); put(cx - 1, cy, L - 1); put(cx, cy + 1, L - 1); put(cx, cy - 1, L - 1); }
       const dx = cx - hx, dy = cy - hy, n = Math.hypot(dx, dy) || 1;
       for (let i = 0; i <= 2; i++) put(hx + (dx / n) * i, hy + (dy / n) * i, i === 0 ? L : L - 1);
-      // Thinking: one bright dot chasing round the ring.
-      if (st.mode === 'think') { const a = t * 5; put(cx + Math.cos(a) * r, cy + Math.sin(a) * r, L); }
     },
 
     // The blob's moments as HUD read-outs: a bracketed panel with the glyph, a pulsing ring and a short label.

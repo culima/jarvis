@@ -1163,8 +1163,8 @@
   // ---------------------------------------------------------------- flow
   // ---------------------------------------------------------------- step 0: look and size
   // Picked here, previewed on the guide right away, saved by the app (Settings has the same choices).
-  const LOOKS = [['jarvis', 'JARVIS']], SIZES = [['large', 'Large'], ['default', 'Default'], ['small', 'Small'], ['cursor', 'Cursor']];
-  const LOOK_QUIPS = { jarvis: 'At your service.' }, SIZE_QUIPS = { large: 'Grand size!', default: 'Full size!', small: 'Fun size!', cursor: 'Tiny pointer me!' };
+  const LOOKS = [['jarvis', 'JARVIS']], SIZES = [['huge', 'Huge'], ['large', 'Large'], ['default', 'Default'], ['small', 'Small'], ['cursor', 'Cursor']];
+  const LOOK_QUIPS = { jarvis: 'At your service.' }, SIZE_QUIPS = { huge: 'Room-filling!', large: 'Grand size!', default: 'Full size!', small: 'Fun size!', cursor: 'Tiny pointer me!' };
   const look = {
     radios(id, list, value, pickIt) {
       $(id).replaceChildren(...list.map(([v, label]) => {

@@ -205,7 +205,11 @@
       if (fromX != null && spotOK(fromX, fromY)) return [fromX, fromY];
       return [(S.l + S.r) / 2, (S.t + S.b) / 2];
     };
-    const setStation = (x, y, byCursor = null) => { station.x = x; station.y = y; station.byCursor = byCursor; m.anchor = { x, y, r: k.R * 0.35 }; };
+    const setStation = (x, y, byCursor = null) => { station.x = x; station.y = y; station.byCursor = byCursor; station.stroll = null; m.anchor = { x, y, r: k.R * 0.35 }; };
+    // Free (the default; Settings, Appearance, Follow my cursor turns it off): it has its own place on the screen
+    // instead of popping up beside the cursor and following it, and wanders when it has nothing to do.
+    const free = () => R.followCursor !== true;
+    const roam = { at: 0 };
     // Pop up right beside the cursor, like a buddy at your elbow: to its right and a little below the tip
     // (the arrow's body points down-right), else its left, else above or below. Bubbles then open on the
     // side away from the cursor, so whatever it's pointing at stays visible.
@@ -353,7 +357,7 @@
 
     // A new request (talking, typing, summoning): come over to the cursor if it's somewhere else now.
     const comeToCursor = () => {
-      if (R.sidebar?.on) return; // game mode: it stays in its panel
+      if (R.sidebar?.on || free()) return; // game mode: it stays in its panel; free: it stays where it is
       const p = presence.ptr;
       if (!p || !visible() || pen.held || m.dragging || m.flung) return;
       if (station.byCursor && Math.hypot(p[0] - station.byCursor[0], p[1] - station.byCursor[1]) < k.R * 2.5) return;
@@ -373,7 +377,7 @@
       // Game mode (sidebar.js): at the top of the panel at the screen's edge, never beside a cursor that isn't there.
       const dock = R.sidebar?.dock?.();
       if (dock) { setStation(dock[0], dock[1]); station.atDock = true; return dock; }
-      const near = besideCursor();
+      const near = free() ? null : besideCursor();
       if (near) { setStation(near[0], near[1], presence.ptr.slice()); station.quietUntil = now + 4; return near; }
       const [cx, cy] = presence.cursor ?? [null, null];
       const clearOf = (x, y) => cx == null || Math.hypot(x - cx, y - cy) >= AVOID();
@@ -947,7 +951,7 @@
           penRelease();
           api.place(hx, hy);
           // It was following the cursor before the drawing: carry on, or it treats the cursor as in its way and hops off.
-          if (pen.follow && presence.ptr) station.byCursor = presence.ptr.slice();
+          if (pen.follow && presence.ptr && !free()) station.byCursor = presence.ptr.slice();
           presence.lastActive = now;
           if (k.userForm && k.userForm !== k.form) await k.morph?.(k.userForm);
         },
@@ -1217,10 +1221,26 @@
               station.moving = true; station.flee = 0; k.S('hop'); k.sq.kick(4);
             }
           }
-          if (station.moving && Math.hypot(m.x - station.x, m.y - station.y) < k.R * 0.4) { station.moving = station.rush = false; m.mode = 'rest'; m.rest = 0.6; }
+          // Free, with nothing to do: now and then it wanders. Mostly a short drift nearby, sometimes a trip across the
+          // screen, each at its own pace; never while it talks, works, draws or is being held, and never onto the cursor.
+          if (free() && !held && !pen.held && !dock && !station.moving && !b && !tool && !dying.length && now >= actUntil && !R.game) {
+            if (!roam.at) roam.at = now + 6 + Math.random() * 10;
+            if (now > roam.at) {
+              const S = bounds(), [ux, uy] = presence.cursor ?? [null, null];
+              let x, y;
+              if (Math.random() < 0.55) {
+                const a = Math.random() * Math.PI * 2, d = k.R * (1.5 + Math.random() * 3);
+                x = clamp(m.x + Math.cos(a) * d, S.l + k.R * 1.6, S.r - k.R * 1.6); y = clamp(m.y + Math.sin(a) * d * 0.6, S.t + k.R * 1.8, S.b - k.R * 1.5);
+                if (!spotOK(x, y) || (ux != null && Math.hypot(x - ux, y - uy) < AVOID())) [x, y] = pickSpot(ux, uy, m.x, m.y);
+              } else [x, y] = pickSpot(ux, uy, S.l + Math.random() * (S.r - S.l), S.t + Math.random() * (S.b - S.t));
+              if (Math.hypot(x - m.x, y - m.y) > k.R * 0.6) { setStation(x, y); m.goTo(x, y); station.moving = true; station.stroll = 0.5 + Math.random() * 1.6; }
+              roam.at = now + 7 + Math.random() * 22;
+            }
+          } else if (b || tool || pen.held || held) roam.at = now + 6 + Math.random() * 8;
+          if (station.moving && Math.hypot(m.x - station.x, m.y - station.y) < k.R * 0.4) { station.moving = station.rush = false; station.stroll = null; m.mode = 'rest'; m.rest = 0.6; }
         }
         // Called over to the cursor: get there in well under a second, even from across the screen.
-        m.speedMul = station.rush ? 7 : station.moving ? 2.6 : b ? (b.kind === 'thought' ? 0.15 : 0.35) : 1;
+        m.speedMul = station.rush ? 7 : station.moving ? (station.stroll ?? 2.6) : b ? (b.kind === 'thought' ? 0.15 : 0.35) : 1;
         if (b?.input?.listen) {
           const inp = b.input;
           inp.level = R.damp(inp.level, inp.target, inp.target > inp.level ? 30 : 8, dt);

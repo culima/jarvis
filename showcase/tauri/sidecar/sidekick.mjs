@@ -120,7 +120,7 @@ const WAYLAND = SESSION === 'wayland';
 const POINTER_OK = seesPointer(process.platform, SESSION);
 const HOTKEYS_OK = hasHotkeys(process.platform, SESSION);
 // Cursor size follows the pointer, which a Wayland session can't see over other apps.
-const SIZES = [['large', 'Large'], ['default', 'Default'], ['small', 'Small'], ...(POINTER_OK ? [['cursor', 'Cursor']] : [])];
+const SIZES = [['huge', 'Huge'], ['large', 'Large'], ['default', 'Default'], ['small', 'Small'], ...(POINTER_OK ? [['cursor', 'Cursor']] : [])];
 const sizeNow = () => (SIZES.some(([s]) => s === config.size) ? config.size : 'default');
 // What the sidekick looks like: JARVIS alone in this build (roamies/jarvis.js), with its own Fish Audio voice.
 // (With Gemini or VoiceStudio as the voice, it's the one the user picked for it.)
@@ -135,7 +135,7 @@ const studioVoice = () => config.studioVoices?.[config.look] ?? null;
 const lookName = () => (LOOKS.find(([id]) => id === config.look) ?? LOOKS[0])[1];
 // What each says when it's picked, in its own voice (Settings and the setup guide show the same words).
 const LOOK_GREETINGS = { jarvis: 'At your service.' };
-const LOOK_BODY = { jarvis: 'a double helix of light written in code (hundreds of fragments of code climbing two turning strands round a bright heart)' };
+const LOOK_BODY = { jarvis: 'a globe of light made of code (hundreds of separate fragments of code round a bright heart; it opens with your voice and churns while you think)' };
 const VOICE_OK = hasVoice(process.platform);
 // The wake phrase ("Alright Jarvis"): the mic stays open and the voice helper listens for it on this computer.
 const WAKE_OK = VOICE_OK && hasWakeWord(process.platform), WAKE_HI = wakeGreeting(process.platform);
@@ -158,7 +158,7 @@ let shellInfo = null; // resolves the shell's reply to it: screens, tray, panel,
   // This build is JARVIS alone: whatever look an earlier install saved, it's this one.
   config.look = 'jarvis';
   // And it starts out large, once: a size picked after that is kept.
-  if (!config.jarvisSized) { config.size = 'large'; config.jarvisSized = true; }
+  if (config.jarvisSized !== 2) { config.size = 'huge'; config.jarvisSized = 2; }
   // Before voices were per look: the one picked becomes the current look's.
   for (const [one, each] of [['geminiVoice', 'geminiVoices'], ['studioVoice', 'studioVoices']]) {
     if (!(one in config)) continue;
@@ -1870,7 +1870,7 @@ function panelState() {
     facts: listFacts().slice().reverse().map((f) => ({ id: f.id, text: f.text })),
     commitments: openCommitments().map((c) => ({ id: c.id, text: c.text, due: c.due ?? null, when: c.due ? `${fmtWhen(c.due)}${c.repeat ? ` · repeats ${repeatLabel(c.repeat)}` : ''}` : '', overdue: !!(c.due && c.due < Date.now()), repeat: c.repeat ?? null })),
     look: config.look ?? 'jarvis', looks: LOOKS.map(([id, label]) => [id, label]), name: lookName(),
-    size: sizeNow(), sizes: SIZES, accent: colourOf(config),
+    size: sizeNow(), sizes: SIZES, accent: colourOf(config), follow: config.followCursor === true,
     replies: VOICE_ON() ? 'voice' : 'text', tts: tts().id, fishKey: hasVoiceKey('fish'), geminiKey: hasVoiceKey('gemini'),
     fishModel: config.fishModel, fishModels: FISH_CHOICES, fishFree: tts().id === 'fish' && speech.on && speech.model.endsWith('-free'),
     geminiVoice: geminiVoice(), geminiVoices: GEMINI_VOICES, geminiShared: ttsKeys.gemini === 'shared',
@@ -2125,6 +2125,7 @@ async function onMenu(id, via) {
   else if (id === 'autolisten') { config.autoListen = !config.autoListen; saveConfig(); menu(); }
   else if (id === 'snoozelisten') { config.snoozeListen = !config.snoozeListen; saveConfig(); menu(); }
   else if (id === 'wakeword' && WAKE_OK) { config.wakeWord = !config.wakeWord; saveConfig(); agentStale = true; voiceConfig(); menu(); }
+  else if (id === 'follow') { config.followCursor = config.followCursor !== true; saveConfig(); ui({ kind: 'follow', on: config.followCursor }); menu(); }
   else if (id === 'accent') {
     const typed = await ask({ prompt: `Colour for everything (me, bubbles, cards, the panel): a hex code or a name like violet, silver, red (now ${colourOf(config)}; leave empty for the default)`, placeholder: '#a06bff' });
     if (typed == null) return;
@@ -2380,6 +2381,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     ui({ kind: 'size', size: sizeNow() });
     ui({ kind: 'look', look: config.look ?? 'jarvis' });
     ui({ kind: 'accent', colour: colourOf(config) });
+    ui({ kind: 'follow', on: config.followCursor === true });
     if (config.onboarded) ui({ kind: 'greet' });
     agents.sync();
   } else if (m.type?.startsWith('ob_') || m.type?.startsWith('chat_') || m.type === 'set_keys' || m.type === 'set_actions' || m.type === 'set_login' || m.type === 'keybind_error') onGuide(m).catch((e) => console.error('guide', e));

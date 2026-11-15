@@ -324,7 +324,7 @@
     avatar.pose = state.busy ? 'think' : state.status.state === 'off' ? 'concerned' : null;
     if (seen.look && state.look !== seen.look) { avatar.setLook(state.look); avatar.act('wave'); quip(QUIPS[state.look] ?? 'Hi!'); }
     else avatar.setLook(state.look);
-    avatar.setForm(state.size);
+    avatar.setForm(['large', 'huge'].includes(state.size) ? 'default' : state.size); // the header's little stage has no room for the big sizes
     if (state.update.available && state.update.available !== seen.update && seen.look) { avatar.act('hype'); quip(`Roamies ${state.update.available} is here!`); }
     seen.look = state.look; seen.update = state.update.available;
   }
@@ -486,7 +486,7 @@
     { k: `addkey:${p.id}`, aria: `${p.keySaved ? 'Change the' : 'Add a'} ${p.label} API key` });
 
   // Settings, one page per concern.
-  const SIZE_TIPS = { large: 'Bigger, with more detail to see.', default: 'My full size.', small: 'Half my size, so I take less of your screen.', cursor: 'I become a little arrow pointer, like your cursor.' };
+  const SIZE_TIPS = { huge: 'As big as I get: every fragment of me on show.', large: 'Bigger, with more detail to see.', default: 'My full size.', small: 'Half my size, so I take less of your screen.', cursor: 'I become a little arrow pointer, like your cursor.' };
   function modelPage() {
     const on = state.providers.filter((p) => p.on);
     const model = state.model ? `${state.model.provider}:${state.model.id}` : '';
@@ -557,6 +557,8 @@
     return [
       state.looks.length > 1 ? group('Look', 'Each look has its own name and voice.', null, lookTiles()) : null, // one look: nothing to pick
       group('Size', 'How big I am on your screen.', null, picks('Size', state.sizes, state.size, (x) => act(`size:${x}`), 'size', SIZE_TIPS)),
+      group('Place', 'Where I am on your screen.', null,
+        toggle('Follow my cursor', state.follow ? 'I pop up beside your cursor and go where it goes.' : 'I have my own place, wander when I\'m idle, and you can drag me anywhere.', !!state.follow, () => act('follow'), 'follow')),
       group('Colour', 'One colour for everything: me, the bubbles, cards and this panel.', null,
         el('div', { className: 'setting' }, el('span', {}, 'Colour', el('small', { textContent: state.accent ?? '' })),
           link('Change', () => act('accent'), { k: 'accent', aria: 'Change the colour' }))),
@@ -1024,7 +1026,7 @@
       facts: [{ id: 'f1', text: 'Prefers short answers in the morning' }, { id: 'f2', text: 'Working on the Roamies 1.0 launch, due end of month' }, { id: 'f3', text: 'Has a cat called Miso' }],
       commitments: [{ id: 'c1', text: 'Send the launch email', when: 'Fri 7 Nov, 10:00', overdue: false }, { id: 'c2', text: 'Book the dentist', when: 'Mon 3 Nov, 09:00', overdue: true }],
       name: 'JARVIS', look: 'jarvis', looks: [['jarvis', 'JARVIS']],
-      size: 'large', sizes: [['large', 'Large'], ['default', 'Default'], ['small', 'Small'], ['cursor', 'Cursor']], accent: '#a06bff',
+      size: 'huge', follow: false, sizes: [['huge', 'Huge'], ['large', 'Large'], ['default', 'Default'], ['small', 'Small'], ['cursor', 'Cursor']], accent: '#a06bff',
       replies: 'voice', fishKey: true, fishModel: 'drama-3', fishFree: false,
       // ?tts=gemini: Gemini as the voice, its key saved.
       tts: new URLSearchParams(location.search).get('tts') === 'gemini' ? 'gemini' : 'fish', geminiKey: new URLSearchParams(location.search).get('tts') === 'gemini', geminiVoice: 'Kore',
