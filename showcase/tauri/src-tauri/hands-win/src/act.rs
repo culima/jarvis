@@ -11,7 +11,6 @@ use std::sync::Mutex;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 use windows::Win32::Foundation::{HWND, POINT};
-use windows::Win32::System::SystemInformation::GetTickCount;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, SetCursorPos};
 
@@ -109,12 +108,54 @@ struct Borrow {
 }
 static B: Mutex<Borrow> = Mutex::new(Borrow { bg: true, win: None, fg_active: false, saved: None, used_real: false, user_busy: false });
 
-fn idle_ms() -> u32 {
-    let mut li = LASTINPUTINFO { cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32, dwTime: 0 };
-    if !unsafe { GetLastInputInfo(&mut li) }.as_bool() {
-        return u32::MAX;
+fn cursor_px() -> POINT {
+    let mut p = POINT::default();
+    let _ = unsafe { GetCursorPos(&mut p) };
+    p
+}
+
+/// The keys and mouse buttons that read as held down right now, by virtual-key code.
+fn keys_down() -> [bool; 256] {
+    let mut d = [false; 256];
+    for (vk, down) in d.iter_mut().enumerate().take(255).skip(1) {
+        *down = unsafe { GetAsyncKeyState(vk as i32) } < 0;
     }
-    unsafe { GetTickCount() }.wrapping_sub(li.dwTime)
+    d
+}
+
+/// Waits until the user has let go of the mouse and keyboard: nothing held and the cursor resting for a moment
+/// (true), or gives up after a few seconds of them carrying on (false).
+/// This looks at the keys and the cursor themselves. The time of the last input (GetLastInputInfo) can't tell who
+/// made it: it also counts this helper's own clicks and keys, a mouse sensor's jitter and other devices' reports,
+/// which made every run look like the user was busy on some PCs.
+fn wait_until_free() -> bool {
+    let began = Instant::now();
+    // Keys down without a break since the start: a real one counts at first, a stuck or phantom one stops counting.
+    let mut still_held = keys_down();
+    let mut anchor = cursor_px();
+    let mut quiet_from = began;
+    loop {
+        let now = Instant::now();
+        let elapsed = now.duration_since(began).as_millis() as u64;
+        let down = keys_down();
+        let mut active = false;
+        for vk in 1..255 {
+            still_held[vk] &= down[vk];
+            active |= down[vk] && key_counts(still_held[vk], elapsed);
+        }
+        let p = cursor_px();
+        active |= cursor_travelled(p.x - anchor.x, p.y - anchor.y);
+        if active {
+            quiet_from = now;
+            anchor = p;
+        } else if now.duration_since(quiet_from).as_millis() as u64 >= QUIET_MS {
+            return true;
+        }
+        if elapsed >= GIVE_UP_MS {
+            return false;
+        }
+        ms(15);
+    }
 }
 
 /// Makes sure this run has the real cursor and keyboard. The first time: tell the user (the Sidekick says so), and
@@ -128,15 +169,11 @@ fn take_real() -> bool {
     }
     B.lock().unwrap().used_real = true;
     progress(json!({ "ev": "borrow" }));
-    ms(900);
-    let until = Instant::now() + Duration::from_secs(8);
-    while idle_ms() < 1000 {
-        if Instant::now() > until {
-            progress(json!({ "ev": "return" }));
-            B.lock().unwrap().user_busy = true;
-            return false;
-        }
-        ms(100);
+    ms(300);
+    if !wait_until_free() {
+        progress(json!({ "ev": "return" }));
+        B.lock().unwrap().user_busy = true;
+        return false;
     }
     let mut p = POINT::default();
     let _ = unsafe { GetCursorPos(&mut p) };

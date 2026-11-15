@@ -720,6 +720,28 @@ pub fn ocr_matches(words: &[(String, Rect)], q: &str) -> Vec<Rect> {
 
 // ---------- checks shared by `cargo test` and `--self-test` ----------
 
+// ---------- is the user at the mouse or keyboard? ----------
+
+/// How long the keys and cursor must rest before a run borrows them, and how long it waits for that.
+pub const QUIET_MS: u64 = 700;
+pub const GIVE_UP_MS: u64 = 8000;
+/// A key that has read as down ever since the wait began is taken for stuck (or a device that reports one) after
+/// this long, and no longer counts as the user typing.
+const STUCK_MS: u64 = 2500;
+/// The cursor wandering less than this many pixels is a resting hand or a jittery sensor, not the user moving it.
+const TRAVEL_PX: i32 = 12;
+
+/// Whether a key that is down counts as the user at the keyboard. held_since_start: down without a break since the
+/// wait began, elapsed_ms ago.
+pub fn key_counts(held_since_start: bool, elapsed_ms: u64) -> bool {
+    !(held_since_start && elapsed_ms >= STUCK_MS)
+}
+
+/// Whether the cursor has gone far enough from where it rested to be the user moving it.
+pub fn cursor_travelled(dx: i32, dy: i32) -> bool {
+    dx.abs() + dy.abs() > TRAVEL_PX
+}
+
 pub fn self_test() -> Vec<(&'static str, bool)> {
     let win = |id: i64, title: &str, w: f64, h: f64| Win { id, pid: 1, app: "App".into(), exe: "app".into(), title: title.into(), r: Rect::new(0.0, 0.0, w, h) };
     let mw = |v: Vec<Win>| main_window(&v).map(|w| w.id);
@@ -788,6 +810,9 @@ pub fn self_test() -> Vec<(&'static str, bool)> {
         ("named and symbol keys", parse_combo("return") == Some((0, 0x0D)) && parse_combo("shift+tab") == Some((MOD_SHIFT, 0x09)) && parse_combo("*") == Some((MOD_SHIFT, 0x38)) && parse_combo("+") == Some((MOD_SHIFT, 0xBB))),
         ("cmd++ zooms in, ctrl+end goes to the end", parse_combo("cmd++") == Some((MOD_CTRL | MOD_SHIFT, 0xBB)) && parse_combo("ctrl+end") == Some((MOD_CTRL, 0x23))),
         ("unknown keys fail", parse_combo("cmd+banana").is_none() && parse_combo("").is_none()),
+        ("a key pressed during the wait is the user typing", key_counts(false, 0) && key_counts(false, 6000) && key_counts(true, 500)),
+        ("a key down since the start stops counting: it's stuck", !key_counts(true, 2500) && !key_counts(true, 7000)),
+        ("a jittery cursor isn't the user; a moved one is", !cursor_travelled(1, -1) && !cursor_travelled(6, 6) && cursor_travelled(40, 0) && cursor_travelled(-9, -9)),
         ("terminals and password apps are hands-off", hands_off("cmd") == Some("Command Prompt") && hands_off("WindowsTerminal").is_some() && hands_off("KeePassXC").is_some()),
         ("everyday apps aren't", hands_off("notepad").is_none() && hands_off("msedge").is_none()),
         ("a guess a few pixels off fits the square", fit_box(&img, 100, 60, Rect::new(25.0, 5.0, 20.0, 20.0), 0) == Some(Rect::new(30.0, 10.0, 20.0, 20.0))),
