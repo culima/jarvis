@@ -1,6 +1,6 @@
 // The wake word's name: what can be saved, and why not. Run: npm test
 import assert from 'node:assert/strict';
-import { cleanWakeName, wakeName } from '../wakename.mjs';
+import { cleanWakeName, hasWakeWord, wakeGreeting, wakeName } from '../wakename.mjs';
 
 assert.deepEqual(cleanWakeName('Jarvis'), { ok: true, name: 'Jarvis' });
 assert.deepEqual(cleanWakeName('  jarvis '), { ok: true, name: 'Jarvis' });
@@ -16,6 +16,11 @@ for (const bad of ['Bob', 'Mr Jarvis', 'R2D2', 'Jar-vis', 'okay', 'Alexa', 'x'.r
   assert.equal(r.ok, false, `${bad} is refused`);
   assert.ok(r.why.length > 5, 'with a reason');
 }
-assert.equal(wakeName({}), 'Roamies');
+assert.equal(wakeName({}), 'Jarvis');
+assert.deepEqual(cleanWakeName('Alright, Friday'), { ok: true, name: 'Friday' }, 'this greeting is dropped too');
+assert.deepEqual(cleanWakeName('all right Friday'), { ok: true, name: 'Friday' });
+assert.equal(wakeGreeting('win32'), 'Alright');
+assert.equal(wakeGreeting('darwin'), 'Hey');
+assert.ok(hasWakeWord('win32') && hasWakeWord('darwin') && !hasWakeWord('linux'), 'the wake word: macOS and Windows');
 assert.equal(wakeName({ wakeName: 'Jarvis' }), 'Jarvis');
 console.log('wake name tests: passed');

@@ -461,7 +461,7 @@
     send({ type: 'answer', id: askId, text: v });
     askId = null; $('code-form').hidden = true; $('code-input').value = '';
   });
-  for (const [id, type, line] of [['autolisten-switch', 'ob_autolisten', "I'll listen right after."], ['wake-switch', 'ob_wake', 'Just say hey!']]) {
+  for (const [id, type, line] of [['autolisten-switch', 'ob_autolisten', "I'll listen right after."], ['wake-switch', 'ob_wake', 'Just say the words!']]) {
     $(id).addEventListener('click', () => { const on = $(id).getAttribute('aria-checked') !== 'true'; $(id).setAttribute('aria-checked', String(on)); send({ type, on }); if (on) quip(line); });
   }
   $('key-toggle').addEventListener('click', () => {
@@ -564,9 +564,10 @@
       $('fish-change').setAttribute('aria-expanded', String(replies.changing));
       $('fish-save').disabled = replies.saving;
       $('fish-save').textContent = replies.saving ? 'Checking…' : 'Save';
-      // Talking hands-free (needs voice): open the mic for an answer, and on macOS, wake on "Hey Roamies".
+      // Talking hands-free (needs voice): open the mic for an answer, and where the helper can, wake on the phrase.
       $('talk-rows').hidden = !state?.voice;
-      $('wake-row').hidden = !isMac();
+      $('wake-row').hidden = !state?.wakeOk;
+      if (state?.wakePhrase) $('wake-says').textContent = `Say “${state.wakePhrase}” to talk. Mic stays on.`;
       $('autolisten-switch').setAttribute('aria-checked', String(!!state?.autoListen));
       $('wake-switch').setAttribute('aria-checked', String(!!state?.wakeWord));
       nav();

@@ -31,7 +31,7 @@ import { foldInput, foldPrompt, memoryInput, memoryPrompt, oneShot, parseBrain, 
 import { briefNote } from './brief.mjs';
 import { CHECK_MS, DEFAULT_DISTRACTIONS, check as focusCheck, parseDistractions, startBlock } from './focus.mjs';
 import { saveCardImage } from './cardimage.mjs';
-import { cleanWakeName, wakeName } from './wakename.mjs';
+import { cleanWakeName, hasWakeWord, wakeGreeting, wakeName } from './wakename.mjs';
 import { KEY_NAME as SYNC_KEY, MIN_PASSPHRASE, checkFolder, folderReady, merge as syncMerge, newDevice, prepareFolder, readRemotes, suggestFolders, tooMuchGone, writeOwn } from './sync.mjs';
 import { EMOTES, EchoFilter, ReplyStream } from './reply.mjs';
 import { downloadModel, isReady, modelDir, sizeLabel, totalBytes } from './voicemodel.mjs';
@@ -136,6 +136,9 @@ const lookName = () => (LOOKS.find(([id]) => id === config.look) ?? LOOKS[0])[1]
 const LOOK_GREETINGS = { jarvis: 'At your service.' };
 const LOOK_BODY = { jarvis: 'a glowing sphere of light' };
 const VOICE_OK = hasVoice(process.platform);
+// The wake phrase ("Alright Jarvis"): the mic stays open and the voice helper listens for it on this computer.
+const WAKE_OK = VOICE_OK && hasWakeWord(process.platform), WAKE_HI = wakeGreeting(process.platform);
+const wakePhrase = () => `${WAKE_HI} ${wakeName(config)}`;
 // Windows and Linux have no on-device speech API apps can use, so voice there runs Parakeet on the PC. Its model
 // is downloaded once: from the setup guide, or the first time voice is used.
 const NEEDS_MODEL = needsVoiceModel(process.platform);
@@ -479,7 +482,7 @@ tools.push({
   name: 'about_roamies',
   description: 'How Roamies works: where it lives, its menus, the panel and each settings page, updates, what to do when something is not working, and who made it. Call it before answering a question about the app.',
   parameters: z.object({}),
-  execute: async () => aboutRoamies({ name: lookName(), looks: LOOKS.map(([, label]) => label), mac: MAC, linux: LINUX, snap: SNAP_OK, pointer: POINTER_OK, voice: VOICE_OK, hotkeys: HOTKEYS_OK }),
+  execute: async () => aboutRoamies({ name: lookName(), looks: LOOKS.map(([, label]) => label), mac: MAC, linux: LINUX, snap: SNAP_OK, pointer: POINTER_OK, voice: VOICE_OK, hotkeys: HOTKEYS_OK, wake: WAKE_OK, wakePhrase: wakePhrase() }),
 });
 // Background agents (agents.mjs): each runs in its own process on the model picked when it starts.
 let turnImage = null; // the picture sent with the request being answered, for send_agent's "snap"
@@ -620,7 +623,7 @@ const livePrompt = (context = '') => {
   const open = commitmentsText(), done = doneTodayText(), working = agents.liveText();
   const turn = `Live state (current as of this moment):
 ${frontNow ? `${frontNow}\n` : ''}${focusLine()}- Editing files, running commands and controlling other apps: ${config.allowActions ? 'ALLOWED' : `switched OFF (tell the user to turn on "Allow File Edits & Commands" on the General page in ${PANEL} if they want it)`}.
-${VOICE_OK ? `- Voice: ${!config.voice ? 'off' : voiceReady() ? `on; ${HOTKEYS_OK ? `${userName} holds ${talkWords()} to talk` : `${userName} presses the key they bound to ${BIND.talk} to start talking and again to send (a pause sends too)`}${config.autoListen ? '. Auto-listen is on: when your reply to a spoken question ends with a question, the mic opens by itself for their answer' : ''}${MAC && config.wakeWord ? `. Wake word is on: ${userName} can also say "Hey ${wakeName(config)}" to start talking hands-free, and what they say right after it is the request (a request that still starts with "Hey ${wakeName(config)}" is them waking you, not calling you by another name: never correct it)${config.wakeName ? ` (they chose "${config.wakeName}" as the wake word; your own name is unchanged)` : ''}` : ''}` : `on, but the speech model isn't downloaded yet (${voiceModel.status === 'downloading' ? 'downloading now' : `the Voice page in ${PANEL}`})`}.` : ''}
+${VOICE_OK ? `- Voice: ${!config.voice ? 'off' : voiceReady() ? `on; ${HOTKEYS_OK ? `${userName} holds ${talkWords()} to talk` : `${userName} presses the key they bound to ${BIND.talk} to start talking and again to send (a pause sends too)`}${config.autoListen ? '. Auto-listen is on: when your reply to a spoken question ends with a question, the mic opens by itself for their answer' : ''}${WAKE_OK && config.wakeWord ? `. Wake word is on: ${userName} can also say "${wakePhrase()}" to start talking hands-free, and what they say right after it is the request (a request that still starts with "${wakePhrase()}" is them waking you, not calling you by another name: never correct it)${config.wakeName ? ` (they chose "${config.wakeName}" as the wake word; your own name is unchanged)` : ''}` : ''}` : `on, but the speech model isn't downloaded yet (${voiceModel.status === 'downloading' ? 'downloading now' : `the Voice page in ${PANEL}`})`}.` : ''}
 - Shortcuts: ${HOTKEYS_OK ? `${keys().write ? `type a question to you: a quick tap of ${writeWords()} (press both and let go), which opens a text field beside the cursor (Enter sends, Shift+Enter adds a line, Esc or another tap closes it)` : `the tap that opens a text field to type a question is turned off (the Ask button in ${PANEL} still opens it; the Shortcuts page there turns the tap back on)`}; show or hide you ${keyWords(keys().summon)}` : `on this Wayland desktop no app can have global shortcuts, so ${userName} binds keys to these commands in their desktop's keyboard settings: ${BIND.summon} (show or hide you), ${BIND.ask} (ask you), ${BIND.list} (the list), ${BIND.talk} (talk) and ${BIND.panel} (the panel)`}${SNAP_OK ? `; ask about an area ${keyWords(keys().snap)}` : ''}${CIRCLE_OK ? "; while holding the talk keys, moving the cursor round something circles it (no clicking; it snaps shut with a click when the circle closes, and loose lines don't count) and you'll see what they circled" : ''}${HOTKEYS_OK ? `; show the list ${keyWords(keys().list)}` : ''}.${HANDS_OK ? '' : ' Asking about an area, reading app windows, finding things on screen by their words and working other apps need the Roamies app, which isn\'t running here; draw there with x, y from a screenshot.'}`;
   const memory = `${open ? `Open commitments:\n${open}` : 'No open commitments.'}${done ? `\nDone today (ticked off on the list or by you; still shown struck through until midnight):\n${done}` : ''}
 ${facts.length ? `What you know about ${userName}${total > facts.length ? ` (${facts.length} most relevant of ${total})` : ''}:\n${facts.map((f) => `- ${f.id}: ${f.text}`).join('\n')}` : `You don't know anything lasting about ${userName} yet.`}${working ? `\n${working}` : ''}`;
@@ -1047,7 +1050,7 @@ function warmUp() {
 let frontSoon = null;
 // Auto-listen: the turn whose reply ended on a question, until the overlay says it's been typed out and said.
 let autoTurn = null;
-// Wake word: the voice helper doesn't listen for "Hey Roamies" while a reply runs, until the overlay says it's been
+// Wake word: the voice helper doesn't listen for the phrase while a reply runs, until the overlay says it's been
 // typed out and said (reply_said), so Roamies can't wake itself. Let go after a while in case that never comes.
 let wakeHeld = false, wakeHoldTimer = null;
 function holdWake(on) {
@@ -1055,7 +1058,7 @@ function holdWake(on) {
   if (on) wakeHoldTimer = setTimeout(() => holdWake(busy), 3 * 60_000);
   if (on === wakeHeld) return;
   wakeHeld = on;
-  if (MAC) send({ type: 'wake_hold', on });
+  if (WAKE_OK) send({ type: 'wake_hold', on });
 }
 const autoListenOn = () => VOICE_OK && !!config.voice && !!config.autoListen && voiceReady() && !intro;
 // The agents' news waits for a quiet moment (desk.tick): nothing running or queued, not listening, the last reply
@@ -1868,7 +1871,7 @@ function panelState() {
     geminiModel: config.geminiModel, geminiModels: GEMINI_CHOICES,
     studio: tts().local ? studioState() : null,
     voice: VOICE_OK ? {
-      on: !!config.voice, keys: HOTKEYS_OK ? talkSymbols() : null, ready: voiceReady(), mac: MAC, mute: config.muteWhileTalking !== false, autoListen: !!config.autoListen, snoozeListen: !!config.snoozeListen, wakeWord: !!config.wakeWord, wakeName: wakeName(config),
+      on: !!config.voice, keys: HOTKEYS_OK ? talkSymbols() : null, ready: voiceReady(), mac: MAC, mute: config.muteWhileTalking !== false, autoListen: !!config.autoListen, snoozeListen: !!config.snoozeListen, wakeWord: !!config.wakeWord, wakeName: wakeName(config), wake: WAKE_OK, wakeGreeting: WAKE_HI,
       // The mic picker: what the voice helper lists, the pick ('' is automatic) and the mic automatic uses now.
       mics: mics.list, mic: config.mic ?? '', micAuto: mics.list.find((x) => x.id === mics.auto)?.name ?? '',
       download: NEEDS_MODEL && config.voice && !voiceReady() ? { status: voiceModel.status, pct: voiceModel.total ? Math.floor((voiceModel.done / voiceModel.total) * 100) : 0, size: sizeLabel() } : null,
@@ -1883,7 +1886,7 @@ function panelState() {
 }
 
 
-const voiceConfig = () => send({ type: 'voice_config', enabled: VOICE_OK && config.voice && voiceReady(), mute: config.muteWhileTalking !== false, sound: !!config.sound, wake: MAC && !!config.wakeWord, wakeName: config.wakeName || '', ...(NEEDS_MODEL ? { model: MODEL_DIR } : {}) });
+const voiceConfig = () => send({ type: 'voice_config', enabled: VOICE_OK && config.voice && voiceReady(), mute: config.muteWhileTalking !== false, sound: !!config.sound, wake: WAKE_OK && !!config.wakeWord, wakeName: wakeName(config), ...(NEEDS_MODEL ? { model: MODEL_DIR } : {}) });
 
 // Progress goes to the setup guide often and to the tray menu now and then.
 let modelShownAt = 0, modelMenuAt = 0;
@@ -2115,14 +2118,14 @@ async function onMenu(id, via) {
   else if (id === 'mutetalk') { config.muteWhileTalking = config.muteWhileTalking === false; saveConfig(); voiceConfig(); menu(); }
   else if (id === 'autolisten') { config.autoListen = !config.autoListen; saveConfig(); menu(); }
   else if (id === 'snoozelisten') { config.snoozeListen = !config.snoozeListen; saveConfig(); menu(); }
-  else if (id === 'wakeword' && MAC) { config.wakeWord = !config.wakeWord; saveConfig(); agentStale = true; voiceConfig(); menu(); }
-  else if (id === 'wakename' && MAC) {
-    const typed = await ask({ prompt: `Wake word: what should come after "Hey"? (now ${wakeName(config)}; leave empty for Roamies)`, placeholder: 'Jarvis' });
+  else if (id === 'wakeword' && WAKE_OK) { config.wakeWord = !config.wakeWord; saveConfig(); agentStale = true; voiceConfig(); menu(); }
+  else if (id === 'wakename' && WAKE_OK) {
+    const typed = await ask({ prompt: `Wake word: what should come after "${WAKE_HI}"? (now ${wakeName(config)}; leave empty for Jarvis)`, placeholder: 'Jarvis' });
     if (typed == null) return;
     const r = cleanWakeName(typed);
     if (!r.ok) { say(r.why, 'concerned'); return; }
     config.wakeName = r.name; saveConfig(); agentStale = true; voiceConfig(); menu();
-    say(config.wakeWord ? `Got it. Say "Hey ${wakeName(config)}" and I'm listening.` : `Saved. Turn on the wake word, then say "Hey ${wakeName(config)}".`, 'happy');
+    say(config.wakeWord ? `Got it. Say "${wakePhrase()}" and I'm listening.` : `Saved. Turn on the wake word, then say "${wakePhrase()}".`, 'happy');
   }
   else if (id === 'voicedl') startVoiceDownload();
   else if (id === 'voice') {
@@ -2263,7 +2266,7 @@ function obState() {
     sound: config.sound,
     voice: VOICE_OK && config.voice,
     autoListen: !!config.autoListen,
-    wakeWord: MAC && !!config.wakeWord,
+    wakeWord: WAKE_OK && !!config.wakeWord, wakeOk: WAKE_OK, wakePhrase: wakePhrase(),
     voiceModel: NEEDS_MODEL ? { status: voiceModel.status, done: voiceModel.done, total: voiceModel.total, error: voiceModel.error, size: sizeLabel() } : null,
     filesAsked: config.filesAsked,
     look: config.look ?? 'jarvis',
@@ -2320,7 +2323,7 @@ async function onGuide(m) {
   else if (m.type === 'set_actions') { config.allowActions = !!m.on; agents.setAllow(config.allowActions); saveConfig(); menu(); obState(); }
   else if (m.type === 'set_login') setLogin(!!m.on);
   else if (m.type === 'ob_autolisten') { config.autoListen = !!m.on; saveConfig(); menu(); obState(); }
-  else if (m.type === 'ob_wake' && MAC) { config.wakeWord = !!m.on; saveConfig(); agentStale = true; voiceConfig(); menu(); obState(); }
+  else if (m.type === 'ob_wake' && WAKE_OK) { config.wakeWord = !!m.on; saveConfig(); agentStale = true; voiceConfig(); menu(); obState(); }
   else if (m.type === 'ob_voice_model') getVoiceModel();
   else if (m.type === 'ob_look') setLook(m.look);
   else if (m.type === 'ob_size' && SIZES.some(([s]) => s === m.size)) { config.size = m.size; saveConfig(); ui({ kind: 'size', size: config.size }); menu(); }

@@ -1,14 +1,19 @@
-// The wake word's name, chosen by the user ("Hey Jarvis"). The voice helper (voice/main.swift, WakeWord.setName) applies
+// The wake phrase: a greeting, then the name ("Alright Jarvis"; "Hey Jarvis" on macOS, where Apple's recogniser
+// listens). The name can be the user's own. The voice helpers (voice/main.swift WakeWord, voice-win/src/wake.rs) apply
 // the same rule; this one turns a typed name into one to save, or says why not, before it gets that far.
-export const DEFAULT_WAKE_NAME = 'Roamies';
+export const DEFAULT_WAKE_NAME = 'Jarvis';
+/** The greeting the voice helper listens for on this system. */
+export const wakeGreeting = (platform) => (platform === 'darwin' ? 'Hey' : 'Alright');
+/** Where the voice helper can listen for the phrase: macOS (voice/main.swift) and Windows (voice-win). */
+export const hasWakeWord = (platform) => platform === 'darwin' || platform === 'win32';
 // Words people say all the time: as a wake name, "Hey there"-style chatter would wake Roamies.
 const COMMON = new Set(['hello', 'there', 'okay', 'yeah', 'thanks', 'sorry', 'right', 'what', 'this', 'that', 'with', 'have',
   'just', 'like', 'about', 'would', 'could', 'really', 'maybe', 'guys', 'everyone', 'everybody', 'buddy', 'listen', 'look',
   'siri', 'alexa', 'google']);
 
-/** Typed text → { ok: true, name } (name '' means back to Roamies) or { ok: false, why }. */
+/** Typed text → { ok: true, name } (name '' means back to the default) or { ok: false, why }. */
 export function cleanWakeName(raw) {
-  const t = String(raw ?? '').trim().replace(/^(hey|hi)[\s,]+/i, '');
+  const t = String(raw ?? '').trim().replace(/^(hey|hi|alright|all right)[\s,]+/i, '');
   if (!t || /^roamies?$/i.test(t)) return { ok: true, name: '' };
   if (/\s/.test(t)) return { ok: false, why: 'Just one word, please, like Jarvis.' };
   const w = t.replace(/[^\p{L}]/gu, '');
