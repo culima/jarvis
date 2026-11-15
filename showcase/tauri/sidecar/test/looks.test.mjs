@@ -49,7 +49,7 @@ for (const who of ['ken']) for (const size of ['default', 'small', 'cursor']) fo
 }
 assert.ok(!looks.some((m) => m[1] === 'ken'), 'Ken is not a pickable look');
 
-// JARVIS, the crystal: draws at every size (large too) and in every state without throwing, round its centre, and
+// JARVIS, the helix of code: draws at every size (large too) and in every state without throwing, round its centre, and
 // keeps turning. Its cursor form and read-outs draw as well.
 {
   new Function(src('../../../roamies/jarvis.js'))();
@@ -61,18 +61,18 @@ assert.ok(!looks.some((m) => m[1] === 'ken'), 'Ken is not a pickable look');
     J.body(k, 100, 100, rad, st);
     return cells;
   };
-  for (const [size, rad] of [['small', 8.25], ['default', 16.5], ['large', 29]]) for (const state of [{}, { mode: 'talk', voice: 0.9 }, { mode: 'listen' }, { mode: 'think' }, { happy: 1 }, { open: 0 }, { dizzy: 1 }, { sleepy: 1 }, { act: 'hype', actA: 0.2 }, { act: 'upset', actA: 0.1 }]) {
+  for (const [size, rad] of [['small', 6.4], ['default', 12.75], ['large', 28]]) for (const state of [{}, { mode: 'talk', voice: 0.9 }, { mode: 'listen' }, { mode: 'think' }, { happy: 1 }, { open: 0 }, { dizzy: 1 }, { sleepy: 1 }, { act: 'hype', actA: 0.2 }, { act: 'upset', actA: 0.1 }]) {
     const cells = [...frame(rad, state, 1).keys()].map((c) => c.split(',').map(Number));
-    assert.ok(cells.length > 40, `JARVIS ${size} draws`);
+    assert.ok(cells.length > (state.sleepy ? 12 : 40), `JARVIS ${size} draws (${cells.length})`);
     const far = Math.max(...cells.map(([x, y]) => Math.hypot(x - 100, y - 100)));
     assert.ok(far < rad * 2.2 + 6, `JARVIS ${size} stays its size, loose snippets included (${far.toFixed(1)} of ${rad})`);
   }
-  assert.ok(frame(29, {}, 1).size > frame(16.5, {}, 1).size * 1.5, 'large shows more than default');
-  // Made of code: the panes' lines add hundreds of cells to the bare crystal, and they keep moving.
-  assert.ok(frame(29, {}, 1).size > 700, `the large crystal is made of many parts (${frame(29, {}, 1).size} cells)`);
-  for (let n = 0; n < 40; n++) for (const rad of [16.5, 29]) { const far = Math.max(...[...frame(rad, { mode: n % 2 ? 'think' : 'talk', voice: 0.9 }, n * 0.31).keys()].map((c) => Math.hypot(...c.split(',').map((v) => v - 100)))); assert.ok(far < rad * 2.2 + 6, `at any moment (${far.toFixed(1)} of ${rad})`); }
+  assert.ok(frame(28, {}, 1).size > frame(12.75, {}, 1).size * 1.5, 'large shows more than default');
+  // Made of code: hundreds of separate fragments, not a few solid shapes.
+  assert.ok(frame(28, {}, 1).size > 450, `the large helix is made of many parts (${frame(28, {}, 1).size} cells)`);
+  for (let n = 0; n < 40; n++) for (const rad of [12.75, 28]) { const far = Math.max(...[...frame(rad, { mode: n % 2 ? 'think' : 'talk', voice: 0.9 }, n * 0.31).keys()].map((c) => Math.hypot(...c.split(',').map((v) => v - 100)))); assert.ok(far < rad * 2.2 + 6, `at any moment (${far.toFixed(1)} of ${rad})`); }
   const same = (a, b) => a.size === b.size && [...a].every(([c, l]) => b.get(c) === l);
-  assert.ok(!same(frame(29, {}, 1), frame(29, {}, 1.5)), 'it turns: two moments differ');
+  assert.ok(!same(frame(28, {}, 1), frame(28, {}, 1.5)), 'it turns: two moments differ');
   const tip = [];
   J.cursor({ put: (x, y) => tip.push([x, y]), L: 4, th }, 50, 50, 46, 43, { t: 1, mode: 'think', voice: null, act: null, open: 1, look: [0, 0], sleepy: 0, happy: 0 });
   assert.ok(tip.length > 30, 'the cursor form draws');
@@ -81,7 +81,7 @@ assert.ok(!looks.some((m) => m[1] === 'ken'), 'Ken is not a pickable look');
   assert.ok(hud.length > 20, 'a read-out draws');
   // The large size reaches the renderer, and a drawing gives it back afterwards.
   const kit = src('../../../roamies/10-dither.js');
-  assert.match(kit, /form === 'large' \? 1\.75/, 'large is drawn larger');
+  assert.match(kit, /form === 'large' \? 2\.2/, 'large is drawn larger');
   assert.equal((kit.match(/\['small', 'large', 'cursor'\]\.includes/g) ?? []).length, 2, 'setForm and morph both know large');
   assert.match(side, /\['large', 'Large'\], \['default', 'Default'\]/, 'and the app offers it');
 }

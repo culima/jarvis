@@ -32,6 +32,7 @@ import { briefNote } from './brief.mjs';
 import { CHECK_MS, DEFAULT_DISTRACTIONS, check as focusCheck, parseDistractions, startBlock } from './focus.mjs';
 import { saveCardImage } from './cardimage.mjs';
 import { cleanWakeName, hasWakeWord, wakeGreeting, wakeName, wakesOnName } from './wakename.mjs';
+import { cleanColour, colourOf } from './colour.mjs';
 import { KEY_NAME as SYNC_KEY, MIN_PASSPHRASE, checkFolder, folderReady, merge as syncMerge, newDevice, prepareFolder, readRemotes, suggestFolders, tooMuchGone, writeOwn } from './sync.mjs';
 import { EMOTES, EchoFilter, ReplyStream } from './reply.mjs';
 import { downloadModel, isReady, modelDir, sizeLabel, totalBytes } from './voicemodel.mjs';
@@ -134,7 +135,7 @@ const studioVoice = () => config.studioVoices?.[config.look] ?? null;
 const lookName = () => (LOOKS.find(([id]) => id === config.look) ?? LOOKS[0])[1];
 // What each says when it's picked, in its own voice (Settings and the setup guide show the same words).
 const LOOK_GREETINGS = { jarvis: 'At your service.' };
-const LOOK_BODY = { jarvis: 'a crystal of light (a turning shell of facets round a bright core, with shards in orbit)' };
+const LOOK_BODY = { jarvis: 'a double helix of light written in code (hundreds of fragments of code climbing two turning strands round a bright heart)' };
 const VOICE_OK = hasVoice(process.platform);
 // The wake phrase ("Alright Jarvis"): the mic stays open and the voice helper listens for it on this computer.
 const WAKE_OK = VOICE_OK && hasWakeWord(process.platform), WAKE_HI = wakeGreeting(process.platform);
@@ -1869,7 +1870,7 @@ function panelState() {
     facts: listFacts().slice().reverse().map((f) => ({ id: f.id, text: f.text })),
     commitments: openCommitments().map((c) => ({ id: c.id, text: c.text, due: c.due ?? null, when: c.due ? `${fmtWhen(c.due)}${c.repeat ? ` · repeats ${repeatLabel(c.repeat)}` : ''}` : '', overdue: !!(c.due && c.due < Date.now()), repeat: c.repeat ?? null })),
     look: config.look ?? 'jarvis', looks: LOOKS.map(([id, label]) => [id, label]), name: lookName(),
-    size: sizeNow(), sizes: SIZES,
+    size: sizeNow(), sizes: SIZES, accent: colourOf(config),
     replies: VOICE_ON() ? 'voice' : 'text', tts: tts().id, fishKey: hasVoiceKey('fish'), geminiKey: hasVoiceKey('gemini'),
     fishModel: config.fishModel, fishModels: FISH_CHOICES, fishFree: tts().id === 'fish' && speech.on && speech.model.endsWith('-free'),
     geminiVoice: geminiVoice(), geminiVoices: GEMINI_VOICES, geminiShared: ttsKeys.gemini === 'shared',
@@ -2124,6 +2125,15 @@ async function onMenu(id, via) {
   else if (id === 'autolisten') { config.autoListen = !config.autoListen; saveConfig(); menu(); }
   else if (id === 'snoozelisten') { config.snoozeListen = !config.snoozeListen; saveConfig(); menu(); }
   else if (id === 'wakeword' && WAKE_OK) { config.wakeWord = !config.wakeWord; saveConfig(); agentStale = true; voiceConfig(); menu(); }
+  else if (id === 'accent') {
+    const typed = await ask({ prompt: `Colour for everything (me, bubbles, cards, the panel): a hex code or a name like violet, silver, red (now ${colourOf(config)}; leave empty for the default)`, placeholder: '#a06bff' });
+    if (typed == null) return;
+    const r = cleanColour(typed);
+    if (!r.ok) { say(r.why, 'concerned'); return; }
+    config.accent = r.colour; saveConfig();
+    ui({ kind: 'accent', colour: colourOf(config) }); menu(); obState();
+    say('There. Everything is in the new colour.', 'happy');
+  }
   else if (id === 'wakename' && WAKE_OK) {
     const typed = await ask({ prompt: `Wake word: what should come after "${WAKE_HI}"? (now ${wakeName(config)}; leave empty for Jarvis)`, placeholder: 'Jarvis' });
     if (typed == null) return;
@@ -2275,6 +2285,7 @@ function obState() {
     voiceModel: NEEDS_MODEL ? { status: voiceModel.status, done: voiceModel.done, total: voiceModel.total, error: voiceModel.error, size: sizeLabel() } : null,
     filesAsked: config.filesAsked,
     look: config.look ?? 'jarvis',
+    accent: colourOf(config),
     size: sizeNow(),
     replies: VOICE_ON() ? 'voice' : 'text', // voice only when it can really speak: a service picked without its key yet shows as text
     tts: tts().id, fishKey: hasVoiceKey('fish'), geminiKey: hasVoiceKey('gemini'),
@@ -2368,6 +2379,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     ui({ kind: 'sound', on: config.sound });
     ui({ kind: 'size', size: sizeNow() });
     ui({ kind: 'look', look: config.look ?? 'jarvis' });
+    ui({ kind: 'accent', colour: colourOf(config) });
     if (config.onboarded) ui({ kind: 'greet' });
     agents.sync();
   } else if (m.type?.startsWith('ob_') || m.type?.startsWith('chat_') || m.type === 'set_keys' || m.type === 'set_actions' || m.type === 'set_login' || m.type === 'keybind_error') onGuide(m).catch((e) => console.error('guide', e));

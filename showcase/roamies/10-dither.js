@@ -32,7 +32,9 @@
       let tox = 0, toy = 0;
       const th = (gx, gy) => PT[((gy - toy) & PM) * PN + ((gx - tox) & PM)];
       const K = o.matrix ? 4 : 1;
-      const GAP = PAL[0].map((c) => (c * 0.7) | 0);
+      // The dark between the dots; the palette can follow the user's colour (theme.js), so this does too.
+      let GAP = PAL[0].map((c) => (c * 0.7) | 0);
+      Roamie.theme?.on(() => { GAP = PAL[0].map((c) => (c * 0.7) | 0); });
       const SCAN = o.scan ?? 1;
       const m = new Roamie.Mover(env, { speed: o.speed ?? 95, accel: 2.4 });
       const face = new Roamie.Face();
@@ -44,11 +46,11 @@
       // Sidekick acts: little performances with pop-out hands, a pixel speech icon and particles.
       const ACTS = ['wave', 'hype', 'remind', 'upset', 'motivate'];
       const forced = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('act') : null;
-      // Size: 'default', 'small' (half the body), 'large' (most of twice it) or 'cursor' (a pixel arrow pointer). Text keeps its size either way.
+      // Size: 'default', 'small' (half the body), 'large' (a bit over twice it) or 'cursor' (a pixel arrow pointer). Text keeps its size either way.
       let form = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('form')) || 'default', lastEnv = null;
       let userForm = form;
-      // Look: 'classic' (the goo blob, and the arrow at cursor size), 'jarvis' (roamies/jarvis.js: a crystal of
-      // light round a lit heart, and a HUD reticle at cursor size) or a character from roamies/people.js
+      // Look: 'classic' (the goo blob, and the arrow at cursor size), 'jarvis' (roamies/jarvis.js: a double helix
+      // written in code round a lit heart, and a HUD reticle at cursor size) or a character from roamies/people.js
       // ('anime', 'sarah', 'adrian', 'rita'). Moves, sizes and everything else are shared.
       const drawn = (l) => (l === 'jarvis' ? Roamie.jarvis : Roamie.people?.[l]);
       const pickLook = (l) => (drawn(l) ? l : 'classic');
@@ -599,7 +601,7 @@
           IW = gw * K; IH = gh * K;
           off.width = IW; off.height = IH; img = octx.createImageData(IW, IH); u32 = new Uint32Array(img.data.buffer); pd = null;
           if (bloom) { bloom.width = Math.ceil(gw / 4); bloom.height = Math.ceil(gh / 4); }
-          R = form === 'cursor' ? 26 : clamp(S * 0.15, 28, 140) * (form === 'small' ? 0.5 : form === 'large' ? 1.75 : 1); m.radius = R * (o.ears || o.antenna ? 1.35 : 1.25);
+          R = form === 'cursor' ? 26 : clamp(S * 0.15, 28, 140) * (form === 'small' ? 0.5 : form === 'large' ? 2.2 : 1); m.radius = R * (o.ears || o.antenna ? 1.35 : 1.25);
         },
         boop() { sq.kick(11); S('boop'); if (ant) ant.forEach((p, i) => { p.vx += rand(-1, 1) * 260 * i; }); if (!forced) startAct('hype', true); },
         grab() { S('grab'); },

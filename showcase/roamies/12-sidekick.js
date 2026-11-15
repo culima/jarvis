@@ -1,6 +1,6 @@
 // The chosen sidekick: the LED matrix dither blob, without the drips, with the agent layer on top.
 Roamie.register(Roamie.ditherKit({
   id: 'sidekick', label: 'Sidekick', matrix: true, pixel: 1.3, glow: 0.55, speed: 80,
-  pal: [[8, 10, 12], [70, 76, 84], [150, 158, 168], [214, 220, 228], [255, 255, 255]],
+  pal: Roamie.theme.pal([[4, 16, 18], [14, 92, 96], [40, 196, 184], [120, 255, 226], [230, 255, 250]]), // follows the user's colour (theme.js)
   plugin: (kit) => Roamie.agentPlugin?.(kit) ?? null,
 }));
