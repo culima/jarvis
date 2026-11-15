@@ -41,7 +41,8 @@ assert.equal(T.set('nonsense'), DEFAULT_COLOUR, 'anything else is the default');
 let told = 0; T.on(() => told++); T.set('red'); assert.equal(told, 1, 'listeners hear of a change');
 // Every page loads it right after core.js, and the body's palettes follow it.
 for (const [page, at] of [['../../../desktop.html', 'roamies/'], ['../../../panel/index.html', '../roamies/'], ['../../../onboarding/index.html', '../roamies/']]) {
-  assert.ok(src(page).includes(`<script src="${at}core.js"></script>\n<script src="${at}theme.js"></script>`), `${page} loads theme.js after core.js`);
+  // (Line ends differ by system: a Windows checkout has \r\n.)
+  assert.ok(src(page).replace(/\r/g, '').includes(`<script src="${at}core.js"></script>\n<script src="${at}theme.js"></script>`), `${page} loads theme.js after core.js`);
 }
 for (const f of ['../../../roamies/12-sidekick.js', '../../../panel/panel.js', '../../../onboarding/onboarding.js']) assert.match(src(f), /Roamie\.theme\.pal\(/, `${f}: the palette follows the colour`);
 assert.match(src('../../../roamies/host.js'), /m\.kind === 'accent'/, 'the overlay hears of a new colour');
