@@ -244,7 +244,7 @@
   // The same LED renderer as on the desktop and in the setup guide, drawn small: one in the header (the Roamie
   // you have, reacting to what's going on) and one per look on the Appearance page. One loop draws them all,
   // only while the panel is up and each canvas is on screen.
-  const LED = [[4, 16, 18], [14, 92, 96], [40, 196, 184], [120, 255, 226], [230, 255, 250]];
+  const LED = [[8, 10, 12], [70, 76, 84], [150, 158, 168], [214, 220, 228], [255, 255, 255]];
   const live = new Set();
   let pointer = null; // the cursor in page px, for their eyes
   addEventListener('pointermove', (e) => { pointer = [e.clientX, e.clientY]; }, { passive: true });
