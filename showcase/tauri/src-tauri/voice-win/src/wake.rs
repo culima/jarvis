@@ -7,7 +7,7 @@
 pub const DEFAULT_NAME: &str = "jarvis";
 
 /// "Alright", as one word, in the spellings a recogniser writes. "All right" as two words counts too (greeting_len).
-const GREETINGS: [&str; 5] = ["alright", "allright", "alrighty", "aright", "alrite"];
+const GREETINGS: [&str; 8] = ["alright", "allright", "alrighty", "aright", "alrite", "alrights", "oright", "orright"];
 
 pub struct WakeWord {
     name: String,
@@ -73,7 +73,7 @@ fn edits(a: &str, b: &str) -> usize {
 fn greeting_len(words: &[Tok], i: usize) -> usize {
     if GREETINGS.contains(&words[i].word.as_str()) {
         1
-    } else if words[i].word == "all" && words.get(i + 1).is_some_and(|w| w.word == "right") {
+    } else if ["all", "oh", "ah", "or", "al"].contains(&words[i].word.as_str()) && words.get(i + 1).is_some_and(|w| ["right", "rights", "write", "ride"].contains(&w.word.as_str())) {
         2
     } else {
         0
@@ -131,24 +131,31 @@ impl WakeWord {
     /// letter and about as long. Jarvis, the default, is heard in many ways ("Javis", "Javas", "Jarvas", "Jervis",
     /// "Charvis", "Yarvis"), so it gets its own, wider rule: it starts with a J sound, has the V in it, is 4 to 8
     /// letters and within two edits. "Travis", "Davis", "Java" and "service" stay out.
-    fn is_name(&self, heard: &str, joined: bool) -> bool {
+    /// greeted: it comes right after "Alright". Then it's almost certainly the call, so whatever ends like the name
+    /// counts too ("Alright Travis", "Alright Davis", "Alright Garvis": the recogniser's guesses at a name it
+    /// doesn't know).
+    fn is_name(&self, heard: &str, joined: bool, greeted: bool) -> bool {
         if self.name != DEFAULT_NAME {
             let allowed = self.allowed_edits() as isize - isize::from(joined);
             return (edits(heard, &self.name) as isize) <= allowed && self.plausible(heard);
         }
         let j = ["ch", "dj", "dsch", "g", "y"].iter().find_map(|p| heard.strip_prefix(p).map(|rest| format!("j{rest}"))).unwrap_or_else(|| heard.to_string());
         let len = j.chars().count();
-        j.starts_with('j') && (4..=8).contains(&len) && j.contains(['v', 'f', 'w', 'b']) && edits(&j, DEFAULT_NAME) <= if joined || len < 5 { 1 } else { 2 }
+        if j.starts_with('j') && (4..=8).contains(&len) && j.contains(['v', 'f', 'w', 'b']) && edits(&j, DEFAULT_NAME) <= if joined || len < 5 { 1 } else { 2 } {
+            return true;
+        }
+        greeted && !joined && (4..=8).contains(&len) && ["vis", "vus", "ves", "vas", "viz", "vice", "viss", "fis", "bis"].iter().any(|end| heard.ends_with(end)) && edits(heard, DEFAULT_NAME) <= 3
+            || greeted && !joined && (5..=7).contains(&len) && edits(heard, DEFAULT_NAME) <= 2
     }
 
     /// The name as heard at word i: as one word, or split in two ("Jar vis"), which must then be a closer match.
     /// Returns the index of its last word.
-    fn name_at(&self, words: &[Tok], i: usize) -> Option<usize> {
-        if self.is_name(&words[i].word, false) {
+    fn name_at(&self, words: &[Tok], i: usize, greeted: bool) -> Option<usize> {
+        if self.is_name(&words[i].word, false, greeted) {
             return Some(i);
         }
         let next = words.get(i + 1)?;
-        self.is_name(&format!("{}{}", words[i].word, next.word), true).then_some(i + 1)
+        self.is_name(&format!("{}{}", words[i].word, next.word), true, greeted).then_some(i + 1)
     }
 
     fn hit(text: &str, words: &[Tok], last: usize) -> Hit {
@@ -160,8 +167,11 @@ impl WakeWord {
     pub fn scan(&self, text: &str) -> Option<Hit> {
         let words = tokens(text);
         // The name by itself, as the first thing said or after one other word ("Jarvis, ...", "Hey Jarvis, ...").
+        // Said all by itself, or after a clipped or other greeting ("...right, Jarvis", "Hey Jarvis"), a guess at the
+        // name is enough, as after "Alright".
         for i in 0..words.len().min(2) {
-            if let Some(last) = self.name_at(&words, i) {
+            let called = if i == 0 { words.len() == 1 } else { ["right", "write", "rights", "hey", "hi", "ok", "okay", "yo"].contains(&words[0].word.as_str()) };
+            if let Some(last) = self.name_at(&words, i, called) {
                 return Some(Self::hit(text, &words, last));
             }
         }
@@ -180,7 +190,7 @@ impl WakeWord {
             if !at_start || !gap.chars().all(|c| matches!(c, ' ' | ',' | '.' | '!')) {
                 continue;
             }
-            if let Some(last) = self.name_at(&words, name_at) {
+            if let Some(last) = self.name_at(&words, name_at, true) {
                 return Some(Self::hit(text, &words, last));
             }
         }
@@ -239,10 +249,24 @@ mod tests {
     }
 
     #[test]
+    fn after_the_greeting_a_guess_at_the_name_is_enough() {
+        for heard in ["Alright Travis, play music", "All right, Davis. Play music", "Alright Garvis play music", "Oh right, Jarvis, play music", "All rights Jarvis play music", "Alright, Jarvice, play music"] {
+            assert_eq!(rest(heard).as_deref().map(str::to_lowercase).as_deref(), Some("play music"), "{heard}");
+        }
+        assert_eq!(rest("Travis, play music"), None, "but not without the greeting");
+        assert_eq!(rest("Travis."), Some(String::new()), "said all by itself, a guess is enough");
+        assert_eq!(rest("Right, Davis. Play music").as_deref(), Some("Play music"), "the greeting's start was clipped");
+        assert_eq!(rest("Service."), None);
+        assert_eq!(rest("Okay."), None);
+        assert_eq!(rest("Alright service desk"), None);
+        assert_eq!(rest("Alright, this is fine"), None);
+    }
+
+    #[test]
     fn other_talk_does_not_wake_it() {
         assert_eq!(rest(""), None);
         assert_eq!(rest("Alright"), None, "the greeting alone");
-        assert_eq!(rest("Alright Travis, let's go"), None, "another name");
+        assert_eq!(rest("Alright Thomas, let's go"), None, "another name");
         assert_eq!(rest("Alright then, Jarvis can wait"), None, "words between greeting and name");
         assert_eq!(rest("I think Jarvis is alright"), None);
         assert_eq!(rest("we talked for a while and then he said alright Jarvis"), None, "late in a sentence");

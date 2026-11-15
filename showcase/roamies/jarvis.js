@@ -25,6 +25,14 @@
       return { shell: pick < 62 ? 1 : pick < 88 ? 0.76 : 0.52, phi: (next() % 6283) / 1000, len: next() % 4, glyph: next() % 97, kind: (next() % 1000) / 1000, far: (next() % 1000) / 1000 };
     });
   })();
+  // The shards: plates of the globe, each with its own height, pace and reach; a few are open (nearly empty).
+  const PLATES = (() => {
+    const next = stream(77003);
+    return Array.from({ length: 22 }, (_, n) => {
+      const y = 1 - (2 * (n + 0.5)) / 22, ring = Math.sqrt(1 - y * y), a = n * 2.399963 + (next() % 1000) / 900;
+      return { x: Math.cos(a) * ring, y, z: Math.sin(a) * ring, h: -0.2 + (next() % 1000) / 2600, open: next() % 6 === 0, pace: 0.5 + (next() % 1000) / 600, phi: (next() % 6283) / 1000, far: (next() % 1000) / 1000 };
+    });
+  })();
   // Letters of code, 3 by 5 cells, for the nearest fragments.
   const GLYPHS = [
     ['###', '#.#', '#.#', '#.#', '###'], ['.#.', '##.', '.#.', '.#.', '###'], ['.##', '.#.', '#..', '.#.', '.##'], ['##.', '.#.', '..#', '.#.', '##.'],
@@ -56,8 +64,8 @@
     // Voice level: rises while it talks or hears you, settles to a slow breath otherwise.
     level(st) {
       const t = st.t;
-      if (st.mode === 'talk' && st.voice != null) return clamp(0.3 + st.voice * 0.9, 0, 1); // the real voice
-      if (st.mode === 'talk') return clamp(0.45 + 0.35 * Math.abs(Math.sin(t * 11.3)) * Math.abs(Math.sin(t * 2.9 + 1)) + 0.2 * Math.sin(t * 23), 0, 1);
+      if (st.mode === 'talk' && st.voice != null) return clamp(st.voice * 1.25, 0, 1); // the real voice: closed in the gaps
+      if (st.mode === 'talk') return clamp(0.9 * Math.abs(Math.sin(t * 5.2)) * (0.55 + 0.45 * Math.abs(Math.sin(t * 1.7 + 1))), 0, 1);
       if (st.mode === 'listen') return clamp(st.heard ?? 0.35 + 0.3 * Math.abs(Math.sin(t * 4.1)), 0, 1);
       if (st.mode === 'think') return 0.25;
       return 0.12 + 0.05 * Math.sin(t * 1.4);
@@ -73,22 +81,26 @@
     // and the letters are rewritten as fast as they can be read; asleep it draws in small and dim.
     globe(k, cx, cy, rad, st, mini) {
       const { put, L, th } = k, t = st.t, dt = st.dt ?? 0.016;
-      const v = this.level(st);
       const mode = st.mode, A = st.act;
+      // The breath: the voice's level (its own when it talks, the user's when it listens), taken the way a meter
+      // takes it: up at once, back down slowly. One easy swell per phrase instead of a flutter.
+      const raw = this.level(st);
+      st.breath = (st.breath ?? 0) + (raw - (st.breath ?? 0)) * Math.min(1, dt * (raw > (st.breath ?? 0) ? 22 : 5));
+      const v = mode === 'talk' || mode === 'listen' ? st.breath : raw;
       const sleepy = st.sleepy > 0.5, talking = mode === 'talk' || mode === 'listen', thinking = mode === 'think';
       // Turn: the whole globe, slowly. Churn: the bands against each other, a crawl at rest and a race in thought.
       st.spin = (st.spin ?? 0) + (thinking ? 0.9 : A === 'hype' ? 3.2 : sleepy ? 0.05 : talking ? 0.4 : 0.24) * dt;
       st.churn = (st.churn ?? 0) + (thinking ? 4.6 : A === 'hype' ? 2.4 : sleepy ? 0 : talking ? 0.3 + v * 0.5 : 0.1) * dt;
       // Swell: how far it has opened. It follows the voice closely (out fast, back a little slower), so it opens
       // on each syllable and closes in the gaps; a cheer pops it, thought holds it a touch open.
-      const want = sleepy ? -0.12 : talking ? 0.42 * v : A === 'hype' ? 0.3 * Math.abs(Math.sin(t * 6.5)) : thinking ? 0.08 + 0.04 * Math.sin(t * 9) : 0.02 * Math.sin(t * 1.4);
+      const want = sleepy ? -0.12 : mode === 'talk' ? 0.4 * v : mode === 'listen' ? 0.24 * v : A === 'hype' ? 0.3 * Math.abs(Math.sin(t * 6.5)) : thinking ? 0.08 + 0.04 * Math.sin(t * 9) : 0.02 * Math.sin(t * 1.4);
       const was = st.swell ?? 0;
-      st.swell = was + (want - was) * Math.min(1, dt * (want > was ? 26 : 12));
+      st.swell = was + (want - was) * Math.min(1, dt * (want > was ? 18 : 9));
       st.fold = (st.fold ?? 0) + ((sleepy ? 1 : 0) - (st.fold ?? 0)) * Math.min(1, dt * 3);
       const fold = st.fold, swell = st.swell, dim = fold > 0.5 ? 1 : 0;
       const wobble = st.dizzy > 0.5 ? Math.sin(t * 9) * 0.3 : 0;
       // It tips toward where it's looking, and sways.
-      const lean = turner(st.look[0] * 0.45, -0.3 + 0.08 * Math.sin(t * 0.41) + st.look[1] * 0.25 + wobble, 0.12 * Math.sin(t * 0.53));
+      const lean = turner(st.look[0] * 0.45, -0.42 + 0.1 * Math.sin(t * 0.41) + st.look[1] * 0.25 + wobble, 0.12 * Math.sin(t * 0.53));
       // Squash from the body's bounces, and a shake when it's upset.
       const sq = st.sq ?? 0, sx = 1 + sq * 0.05, sy = 1 - sq * 0.04;
       const shake = A === 'upset' && (st.actA ?? 0) % 0.9 < 0.32 ? Math.sin(t * 48) * 0.6 : 0;
@@ -104,16 +116,28 @@
         // Its place: spread evenly over the globe (a golden spiral), on its shell, in its band.
         const y = 1 - (2 * (i + 0.5)) / count, ring = Math.sqrt(1 - y * y), band = Math.floor(((y + 1) / 2) * BANDS);
         const way = band % 2 ? 1 : -1, own = 0.6 + ((band * 7) % 5) * 0.22;
-        // In thought the fragments also jump about in their bands; with the voice each stands off a little further.
+        // In thought the fragments also jump about in their bands.
         const jump = thinking ? 0.22 * Math.sin(t * (11 + f.kind * 9) + f.phi) : 0;
-        const lon = i * 2.399963 + st.spin * (0.8 + own * 0.25) + st.churn * way * own + jump;
-        const r = f.shell * (1 + (talking ? v * f.far * 0.16 : 0) + (thinking ? 0.05 * Math.sin(t * 14 + f.phi) : 0));
-        const q = lean([Math.cos(lon) * ring * r, y * r, Math.sin(lon) * ring * r]);
-        const s = 1 + q[2] * 0.16, x = Math.round(cx + q[0] * size * s * sx + shake), yy = Math.round(cy + q[1] * size * s * sy), z = q[2];
+        const own0 = i * 2.399963 + st.churn * way * own + jump;
+        let px = Math.cos(own0) * ring, pz = Math.sin(own0) * ring;
+        // The globe is broken into shards: plates that stand at their own heights, with cracks between them and a
+        // few missing altogether, so the inside shows. The fragments stream through them, rising and sinking as they
+        // cross from one to the next. With the voice the shards part, each by its own amount.
+        let best = -2, next2 = -2, P = PLATES[0];
+        if (f.shell === 1) for (const pl of PLATES) { const d = px * pl.x + y * pl.y + pz * pl.z; if (d > best) { next2 = best; best = d; P = pl; } else if (d > next2) next2 = d; }
+        const outer = f.shell === 1;
+        if (outer && !mini && (best - next2 < 0.03 || (P.open && f.kind > 0.14))) continue;
+        const lift = outer ? P.h + 0.035 * Math.sin(t * P.pace + P.phi) + (talking ? v * P.far * 0.15 : 0) + (thinking ? 0.06 * Math.sin(t * 9 + P.phi) : 0) : 0;
+        const r = f.shell * (1 + lift + (f.far - 0.5) * 0.09 + (talking ? v * f.far * 0.1 : 0) + (thinking ? 0.05 * Math.sin(t * 14 + f.phi) : 0));
+        const cs = Math.cos(st.spin), sn = Math.sin(st.spin);
+        [px, pz] = [px * cs - pz * sn, px * sn + pz * cs];
+        const q = lean([px * r, y * r, pz * r]);
+        // Nearer is bigger: the front bulges toward you and the back falls away.
+        const s = 1 + q[2] * 0.3, x = Math.round(cx + q[0] * size * s * sx + shake), yy = Math.round(cy + q[1] * size * s * sy), z = q[2];
         const lit = Math.abs(y - front) < 0.12 || (st.happy > 0.5 && i % 7 === 0) || (talking && v > 0.55 && (i + Math.floor(t * 9)) % 8 === 0) || (i + Math.floor(t * 1.7 + f.phi)) % 23 === 0;
         // Far fragments are specks, nearer ones dashes (a word), the nearest are written out: a letter of code.
         // The far side shows through only as a scatter, so the heart is seen through the gaps.
-        if (z < -0.25) { if (th(x, yy) < 0.34 + z * 0.2) put(x, yy, 1); continue; }
+        if (z < -0.2) { if (th(x, yy) < 0.3 + z * 0.22) put(x, yy, 1); continue; }
         if (z < 0.15 || !words) { for (let w = 0; w <= (words ? f.len % 2 : 0); w++) put(x + w, yy, clamp((z > -0.05 ? 2 : 1) + (lit ? 1 : 0) - dim, 1, L - 1)); continue; }
         if (z < 0.5 || !letters || f.kind > 0.4) { for (let w = 0; w < 1 + (f.len % 3); w++) put(x + w, yy, clamp((z > 0.4 ? 3 : 2) + (lit ? 1 : 0) - dim, 1, L - (lit ? 0 : 1))); continue; }
         // In thought the letters are rewritten over and over.

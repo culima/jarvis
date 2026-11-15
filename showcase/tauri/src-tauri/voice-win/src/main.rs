@@ -153,7 +153,7 @@ const SPEECH_LEVEL: f64 = 0.15;
 // background can keep the level up, but it doesn't keep adding to what was said (#64).
 const STALE_ENDS: f64 = 4.0;
 // Waiting for the wake phrase: this much sound from before someone spoke is kept, so the phrase's start is there.
-const WAKE_PREROLL: f64 = 0.5;
+const WAKE_PREROLL: f64 = 0.8;
 const WAKE_READ_EVERY: f64 = 0.5;
 // The phrase starts what someone says: only this much of it is read, so a long talk or a film costs a few reads.
 const WAKE_WINDOW: f64 = 4.0;
@@ -596,9 +596,15 @@ impl Voice {
     /// A reading of what's being said while waiting: with the phrase in it, this becomes a hands-free take.
     fn heard_while_waiting(&mut self, text: &str) {
         let Some(hit) = self.wake.scan(text) else {
-            // Never the words themselves: only that something was said and it wasn't the phrase.
+            // A short thing said that wasn't the phrase may have been a call that was misheard: those few words go in
+            // this PC's own log (never anywhere else), so the matcher can be taught them. Longer talk is only counted.
             if self.wake_closed {
-                log(&format!("wake: heard {} words, not the phrase", text.split_whitespace().count()));
+                let n = text.split_whitespace().count();
+                if (1..=3).contains(&n) {
+                    log(&format!("wake: heard {n} words, not the phrase: \"{text}\""));
+                } else {
+                    log(&format!("wake: heard {n} words, not the phrase"));
+                }
             }
             return;
         };
