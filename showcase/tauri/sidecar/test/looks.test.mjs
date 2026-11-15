@@ -48,6 +48,40 @@ for (const who of ['ken']) for (const size of ['default', 'small', 'cursor']) fo
   assert.ok(span < (size === 'default' ? 40 : 24), `${who} ${size} stays its size (${span})`);
 }
 assert.ok(!looks.some((m) => m[1] === 'ken'), 'Ken is not a pickable look');
+
+// JARVIS, the crystal: draws at every size (large too) and in every state without throwing, round its centre, and
+// keeps turning. Its cursor form and read-outs draw as well.
+{
+  new Function(src('../../../roamies/jarvis.js'))();
+  const J = window.Roamie.jarvis;
+  const frame = (rad, state, t) => {
+    const cells = new Map();
+    const k = { put: (x, y, l) => { assert.ok(Number.isFinite(x) && Number.isFinite(y) && l >= 0 && l <= 4, 'a JARVIS cell'); const key = `${Math.round(x)},${Math.round(y)}`; cells.set(key, Math.max(cells.get(key) ?? 0, l)); }, L: 4, th };
+    const st = { t, dt: 1 / 60, mode: null, voice: null, act: null, actA: 0, open: 1, look: [0.5, -0.3], vx: 0, sq: 0, wide: 0, dizzy: 0, happy: 0, sleepy: 0, ...state };
+    J.body(k, 100, 100, rad, st);
+    return cells;
+  };
+  for (const [size, rad] of [['small', 8.25], ['default', 16.5], ['large', 29]]) for (const state of [{}, { mode: 'talk', voice: 0.9 }, { mode: 'listen' }, { mode: 'think' }, { happy: 1 }, { open: 0 }, { dizzy: 1 }, { sleepy: 1 }, { act: 'hype', actA: 0.2 }, { act: 'upset', actA: 0.1 }]) {
+    const cells = [...frame(rad, state, 1).keys()].map((c) => c.split(',').map(Number));
+    assert.ok(cells.length > 40, `JARVIS ${size} draws`);
+    const far = Math.max(...cells.map(([x, y]) => Math.hypot(x - 100, y - 100)));
+    assert.ok(far < rad * 2.2, `JARVIS ${size} stays its size (${far.toFixed(1)} of ${rad})`);
+  }
+  assert.ok(frame(29, {}, 1).size > frame(16.5, {}, 1).size * 1.5, 'large shows more than default');
+  const same = (a, b) => a.size === b.size && [...a].every(([c, l]) => b.get(c) === l);
+  assert.ok(!same(frame(29, {}, 1), frame(29, {}, 1.5)), 'it turns: two moments differ');
+  const tip = [];
+  J.cursor({ put: (x, y) => tip.push([x, y]), L: 4, th }, 50, 50, 46, 43, { t: 1, mode: 'think', voice: null, act: null, open: 1, look: [0, 0], sleepy: 0, happy: 0 });
+  assert.ok(tip.length > 30, 'the cursor form draws');
+  const hud = [];
+  J.readout({ put: (x, y) => hud.push([x, y]), L: 4 }, 50, 50, 'heart', 0.5, 1.6, false);
+  assert.ok(hud.length > 20, 'a read-out draws');
+  // The large size reaches the renderer, and a drawing gives it back afterwards.
+  const kit = src('../../../roamies/10-dither.js');
+  assert.match(kit, /form === 'large' \? 1\.75/, 'large is drawn larger');
+  assert.equal((kit.match(/\['small', 'large', 'cursor'\]\.includes/g) ?? []).length, 2, 'setForm and morph both know large');
+  assert.match(side, /\['large', 'Large'\], \['default', 'Default'\]/, 'and the app offers it');
+}
 console.log('looks tests: passed');
 
 // Regression: a selected stage canvas showed as a grey box around the Roamie (WebKit tints selected canvases).

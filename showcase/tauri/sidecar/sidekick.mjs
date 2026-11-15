@@ -119,7 +119,7 @@ const WAYLAND = SESSION === 'wayland';
 const POINTER_OK = seesPointer(process.platform, SESSION);
 const HOTKEYS_OK = hasHotkeys(process.platform, SESSION);
 // Cursor size follows the pointer, which a Wayland session can't see over other apps.
-const SIZES = [['default', 'Default'], ['small', 'Small'], ...(POINTER_OK ? [['cursor', 'Cursor']] : [])];
+const SIZES = [['large', 'Large'], ['default', 'Default'], ['small', 'Small'], ...(POINTER_OK ? [['cursor', 'Cursor']] : [])];
 const sizeNow = () => (SIZES.some(([s]) => s === config.size) ? config.size : 'default');
 // What the sidekick looks like: JARVIS alone in this build (roamies/jarvis.js), with its own Fish Audio voice.
 // (With Gemini or VoiceStudio as the voice, it's the one the user picked for it.)
@@ -134,7 +134,7 @@ const studioVoice = () => config.studioVoices?.[config.look] ?? null;
 const lookName = () => (LOOKS.find(([id]) => id === config.look) ?? LOOKS[0])[1];
 // What each says when it's picked, in its own voice (Settings and the setup guide show the same words).
 const LOOK_GREETINGS = { jarvis: 'At your service.' };
-const LOOK_BODY = { jarvis: 'a glowing sphere of light' };
+const LOOK_BODY = { jarvis: 'a crystal of light (a turning shell of facets round a bright core, with shards in orbit)' };
 const VOICE_OK = hasVoice(process.platform);
 // The wake phrase ("Alright Jarvis"): the mic stays open and the voice helper listens for it on this computer.
 const WAKE_OK = VOICE_OK && hasWakeWord(process.platform), WAKE_HI = wakeGreeting(process.platform);
@@ -153,6 +153,8 @@ let shellInfo = null; // resolves the shell's reply to it: screens, tray, panel,
   if (saved && typeof saved === 'object' && !Array.isArray(saved)) config = { ...DEFAULTS, ...saved };
   // This build is JARVIS alone: whatever look an earlier install saved, it's this one.
   config.look = 'jarvis';
+  // And it starts out large, once: a size picked after that is kept.
+  if (!config.jarvisSized) { config.size = 'large'; config.jarvisSized = true; }
   // Before voices were per look: the one picked becomes the current look's.
   for (const [one, each] of [['geminiVoice', 'geminiVoices'], ['studioVoice', 'studioVoices']]) {
     if (!(one in config)) continue;

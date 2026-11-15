@@ -44,11 +44,11 @@
       // Sidekick acts: little performances with pop-out hands, a pixel speech icon and particles.
       const ACTS = ['wave', 'hype', 'remind', 'upset', 'motivate'];
       const forced = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('act') : null;
-      // Size: 'default', 'small' (half the body) or 'cursor' (a pixel arrow pointer). Text keeps its size either way.
+      // Size: 'default', 'small' (half the body), 'large' (most of twice it) or 'cursor' (a pixel arrow pointer). Text keeps its size either way.
       let form = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('form')) || 'default', lastEnv = null;
       let userForm = form;
-      // Look: 'classic' (the goo blob, and the arrow at cursor size), 'jarvis' (roamies/jarvis.js: a globe of
-      // points with a lit heart, and a HUD reticle at cursor size) or a character from roamies/people.js
+      // Look: 'classic' (the goo blob, and the arrow at cursor size), 'jarvis' (roamies/jarvis.js: a crystal of
+      // light round a lit heart, and a HUD reticle at cursor size) or a character from roamies/people.js
       // ('anime', 'sarah', 'adrian', 'rita'). Moves, sizes and everything else are shared.
       const drawn = (l) => (l === 'jarvis' ? Roamie.jarvis : Roamie.people?.[l]);
       const pickLook = (l) => (drawn(l) ? l : 'classic');
@@ -460,7 +460,7 @@
         return { sx: sc, sy: sc, rot: style === 'swirl' ? -mo.turn * 0.35 * (1 - mEase(u)) : 0, lift: 0 };
       };
       const morph = (to) => new Promise((res) => {
-        const f = ['small', 'cursor'].includes(to) ? to : 'default';
+        const f = ['small', 'large', 'cursor'].includes(to) ? to : 'default';
         if (mo) { const r = mo.res; if (!mo.swapped) swapForm(mo.to); mo = null; r(); }
         if (f === form) { res(); return; }
         const toCursor = f === 'cursor', style = MORPHS.filter((x) => x !== lastMorph)[Math.floor(Math.random() * (MORPHS.length - 1))];
@@ -585,7 +585,7 @@
         wheel: (dy) => plug?.wheel?.(dy),
         get form() { return form; },
         // The user's size. While a drawing holds it as its cursor, it changes back to this one when it's let go.
-        setForm(f) { userForm = ['small', 'cursor'].includes(f) ? f : 'default'; if (!plug?.ghost?.()) swapForm(userForm); },
+        setForm(f) { userForm = ['small', 'large', 'cursor'].includes(f) ? f : 'default'; if (!plug?.ghost?.()) swapForm(userForm); },
         ghost: () => !!plug?.ghost?.(),
         morph,
         get look() { return look; },
@@ -599,7 +599,7 @@
           IW = gw * K; IH = gh * K;
           off.width = IW; off.height = IH; img = octx.createImageData(IW, IH); u32 = new Uint32Array(img.data.buffer); pd = null;
           if (bloom) { bloom.width = Math.ceil(gw / 4); bloom.height = Math.ceil(gh / 4); }
-          R = form === 'cursor' ? 26 : clamp(S * 0.15, 28, 140) * (form === 'small' ? 0.5 : 1); m.radius = R * (o.ears || o.antenna ? 1.35 : 1.25);
+          R = form === 'cursor' ? 26 : clamp(S * 0.15, 28, 140) * (form === 'small' ? 0.5 : form === 'large' ? 1.75 : 1); m.radius = R * (o.ears || o.antenna ? 1.35 : 1.25);
         },
         boop() { sq.kick(11); S('boop'); if (ant) ant.forEach((p, i) => { p.vx += rand(-1, 1) * 260 * i; }); if (!forced) startAct('hype', true); },
         grab() { S('grab'); },
