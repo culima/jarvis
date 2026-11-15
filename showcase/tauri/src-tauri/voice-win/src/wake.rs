@@ -1,7 +1,8 @@
 // The wake phrase, "Alright Jarvis": a greeting, then the name, at the start of something said (the text's start or
 // after a sentence end). The twin of WakeWord in voice/main.swift, where the greeting is "Hey", for what Parakeet
-// writes: "Alright, Jarvis.", "All right Jarvis", "Alright, Jarvis's". The name can be the user's own; the greeting
-// stays, so the name alone in a sentence never wakes it. Nothing here keeps or logs what was heard.
+// writes: "Alright, Jarvis.", "All right Jarvis", "Alright, Jarvis's". The name can be the user's own.
+// The name by itself wakes it too, but only as the first thing said ("Jarvis, what's the time?", or after one
+// other word: "Hey Jarvis"); in the middle of a sentence it never does. Nothing here keeps or logs what was heard.
 
 pub const DEFAULT_NAME: &str = "jarvis";
 
@@ -126,9 +127,31 @@ impl WakeWord {
         heard.chars().next() == self.name.chars().next() && heard.chars().count() + 1 >= self.name.chars().count()
     }
 
+    /// The name as heard at word i: as one word, or split in two ("Jar vis"), which must then be a closer match.
+    /// Returns the index of its last word.
+    fn name_at(&self, words: &[Tok], i: usize) -> Option<usize> {
+        let allowed = self.allowed_edits() as isize;
+        let mut heard = vec![(words[i].word.clone(), i, allowed)];
+        if let Some(next) = words.get(i + 1) {
+            heard.push((format!("{}{}", words[i].word, next.word), i + 1, allowed - 1));
+        }
+        heard.into_iter().find(|(word, _, allowed)| (edits(word, &self.name) as isize) <= *allowed && self.plausible(word)).map(|h| h.1)
+    }
+
+    fn hit(text: &str, words: &[Tok], last: usize) -> Hit {
+        let rest = text[words[last].end..].trim_start_matches(|c: char| !c.is_alphanumeric()).trim().to_string();
+        Hit { rest, words: last + 1 }
+    }
+
     /// The phrase in what was heard, or None when it isn't there.
     pub fn scan(&self, text: &str) -> Option<Hit> {
         let words = tokens(text);
+        // The name by itself, as the first thing said or after one other word ("Jarvis, ...", "Hey Jarvis, ...").
+        for i in 0..words.len().min(2) {
+            if let Some(last) = self.name_at(&words, i) {
+                return Some(Self::hit(text, &words, last));
+            }
+        }
         for i in 0..words.len() {
             let g = greeting_len(&words, i);
             let name_at = i + g;
@@ -144,17 +167,8 @@ impl WakeWord {
             if !at_start || !gap.chars().all(|c| matches!(c, ' ' | ',' | '.' | '!')) {
                 continue;
             }
-            let allowed = self.allowed_edits();
-            // The name as one word, or split in two ("Jar vis"): joined, it must be a closer match.
-            let mut heard = vec![(words[name_at].word.clone(), name_at, allowed as isize)];
-            if let Some(next) = words.get(name_at + 1) {
-                heard.push((format!("{}{}", words[name_at].word, next.word), name_at + 1, allowed as isize - 1));
-            }
-            for (word, last, allowed) in heard {
-                if (edits(&word, &self.name) as isize) <= allowed && self.plausible(&word) {
-                    let rest = text[words[last].end..].trim_start_matches(|c: char| !c.is_alphanumeric()).trim().to_string();
-                    return Some(Hit { rest, words: last + 1 });
-                }
+            if let Some(last) = self.name_at(&words, name_at) {
+                return Some(Self::hit(text, &words, last));
             }
         }
         None
@@ -189,11 +203,21 @@ mod tests {
     }
 
     #[test]
+    fn the_name_alone_wakes_it_as_the_first_thing_said() {
+        assert_eq!(rest("Jarvis"), Some(String::new()));
+        assert_eq!(rest("Jarvis, what time is it?"), Some("what time is it?".into()));
+        assert_eq!(rest("Hey Jarvis, what time is it"), Some("what time is it".into()), "after one other word");
+        assert_eq!(rest("Jar vis, play music"), Some("play music".into()));
+        assert_eq!(WakeWord::new().scan("Jarvis, go on").map(|h| h.words), Some(1));
+        assert_eq!(WakeWord::new().scan("Okay Jarvis go on").map(|h| h.words), Some(2));
+        assert_eq!(rest("So yesterday Jarvis told me a joke"), None, "not in the middle of a sentence");
+        assert_eq!(rest("Travis, what time is it"), None, "another name");
+    }
+
+    #[test]
     fn other_talk_does_not_wake_it() {
         assert_eq!(rest(""), None);
         assert_eq!(rest("Alright"), None, "the greeting alone");
-        assert_eq!(rest("Jarvis, what time is it"), None, "the name without the greeting");
-        assert_eq!(rest("Hey Jarvis, what time is it"), None, "another greeting");
         assert_eq!(rest("Alright Travis, let's go"), None, "another name");
         assert_eq!(rest("Alright then, Jarvis can wait"), None, "words between greeting and name");
         assert_eq!(rest("I think Jarvis is alright"), None);

@@ -31,7 +31,7 @@ import { foldInput, foldPrompt, memoryInput, memoryPrompt, oneShot, parseBrain, 
 import { briefNote } from './brief.mjs';
 import { CHECK_MS, DEFAULT_DISTRACTIONS, check as focusCheck, parseDistractions, startBlock } from './focus.mjs';
 import { saveCardImage } from './cardimage.mjs';
-import { cleanWakeName, hasWakeWord, wakeGreeting, wakeName } from './wakename.mjs';
+import { cleanWakeName, hasWakeWord, wakeGreeting, wakeName, wakesOnName } from './wakename.mjs';
 import { KEY_NAME as SYNC_KEY, MIN_PASSPHRASE, checkFolder, folderReady, merge as syncMerge, newDevice, prepareFolder, readRemotes, suggestFolders, tooMuchGone, writeOwn } from './sync.mjs';
 import { EMOTES, EchoFilter, ReplyStream } from './reply.mjs';
 import { downloadModel, isReady, modelDir, sizeLabel, totalBytes } from './voicemodel.mjs';
@@ -139,6 +139,9 @@ const VOICE_OK = hasVoice(process.platform);
 // The wake phrase ("Alright Jarvis"): the mic stays open and the voice helper listens for it on this computer.
 const WAKE_OK = VOICE_OK && hasWakeWord(process.platform), WAKE_HI = wakeGreeting(process.platform);
 const wakePhrase = () => `${WAKE_HI} ${wakeName(config)}`;
+// What to say, for the panel and the setup guide: the phrase, and where the helper takes it, the name by itself.
+const WAKE_ALONE = wakesOnName(process.platform);
+const wakeSay = () => (WAKE_ALONE ? `“${wakePhrase()}” or just “${wakeName(config)}”` : `“${wakePhrase()}”`);
 // Windows and Linux have no on-device speech API apps can use, so voice there runs Parakeet on the PC. Its model
 // is downloaded once: from the setup guide, or the first time voice is used.
 const NEEDS_MODEL = needsVoiceModel(process.platform);
@@ -625,7 +628,7 @@ const livePrompt = (context = '') => {
   const open = commitmentsText(), done = doneTodayText(), working = agents.liveText();
   const turn = `Live state (current as of this moment):
 ${frontNow ? `${frontNow}\n` : ''}${focusLine()}- Editing files, running commands and controlling other apps: ${config.allowActions ? 'ALLOWED' : `switched OFF (tell the user to turn on "Allow File Edits & Commands" on the General page in ${PANEL} if they want it)`}.
-${VOICE_OK ? `- Voice: ${!config.voice ? 'off' : voiceReady() ? `on; ${HOTKEYS_OK ? `${userName} holds ${talkWords()} to talk` : `${userName} presses the key they bound to ${BIND.talk} to start talking and again to send (a pause sends too)`}${config.autoListen ? '. Auto-listen is on: when your reply to a spoken question ends with a question, the mic opens by itself for their answer' : ''}${WAKE_OK && config.wakeWord ? `. Wake word is on: ${userName} can also say "${wakePhrase()}" to start talking hands-free, and what they say right after it is the request (a request that still starts with "${wakePhrase()}" is them waking you, not calling you by another name: never correct it)${config.wakeName ? ` (they chose "${config.wakeName}" as the wake word; your own name is unchanged)` : ''}` : ''}` : `on, but the speech model isn't downloaded yet (${voiceModel.status === 'downloading' ? 'downloading now' : `the Voice page in ${PANEL}`})`}.` : ''}
+${VOICE_OK ? `- Voice: ${!config.voice ? 'off' : voiceReady() ? `on; ${HOTKEYS_OK ? `${userName} holds ${talkWords()} to talk` : `${userName} presses the key they bound to ${BIND.talk} to start talking and again to send (a pause sends too)`}${config.autoListen ? '. Auto-listen is on: when your reply to a spoken question ends with a question, the mic opens by itself for their answer' : ''}${WAKE_OK && config.wakeWord ? `. Wake word is on: ${userName} can also say "${wakePhrase()}"${WAKE_ALONE ? ` (or just "${wakeName(config)}" as the first word)` : ''} to start talking hands-free, and what they say right after it is the request (a request that still starts with "${wakePhrase()}" is them waking you, not calling you by another name: never correct it)${config.wakeName ? ` (they chose "${config.wakeName}" as the wake word; your own name is unchanged)` : ''}` : ''}` : `on, but the speech model isn't downloaded yet (${voiceModel.status === 'downloading' ? 'downloading now' : `the Voice page in ${PANEL}`})`}.` : ''}
 - Shortcuts: ${HOTKEYS_OK ? `${keys().write ? `type a question to you: a quick tap of ${writeWords()} (press both and let go), which opens a text field beside the cursor (Enter sends, Shift+Enter adds a line, Esc or another tap closes it)` : `the tap that opens a text field to type a question is turned off (the Ask button in ${PANEL} still opens it; the Shortcuts page there turns the tap back on)`}; show or hide you ${keyWords(keys().summon)}` : `on this Wayland desktop no app can have global shortcuts, so ${userName} binds keys to these commands in their desktop's keyboard settings: ${BIND.summon} (show or hide you), ${BIND.ask} (ask you), ${BIND.list} (the list), ${BIND.talk} (talk) and ${BIND.panel} (the panel)`}${SNAP_OK ? `; ask about an area ${keyWords(keys().snap)}` : ''}${CIRCLE_OK ? "; while holding the talk keys, moving the cursor round something circles it (no clicking; it snaps shut with a click when the circle closes, and loose lines don't count) and you'll see what they circled" : ''}${HOTKEYS_OK ? `; show the list ${keyWords(keys().list)}` : ''}.${HANDS_OK ? '' : ' Asking about an area, reading app windows, finding things on screen by their words and working other apps need the Roamies app, which isn\'t running here; draw there with x, y from a screenshot.'}`;
   const memory = `${open ? `Open commitments:\n${open}` : 'No open commitments.'}${done ? `\nDone today (ticked off on the list or by you; still shown struck through until midnight):\n${done}` : ''}
 ${facts.length ? `What you know about ${userName}${total > facts.length ? ` (${facts.length} most relevant of ${total})` : ''}:\n${facts.map((f) => `- ${f.id}: ${f.text}`).join('\n')}` : `You don't know anything lasting about ${userName} yet.`}${working ? `\n${working}` : ''}`;
@@ -1873,7 +1876,7 @@ function panelState() {
     geminiModel: config.geminiModel, geminiModels: GEMINI_CHOICES,
     studio: tts().local ? studioState() : null,
     voice: VOICE_OK ? {
-      on: !!config.voice, keys: HOTKEYS_OK ? talkSymbols() : null, ready: voiceReady(), mac: MAC, mute: config.muteWhileTalking !== false, autoListen: !!config.autoListen, snoozeListen: !!config.snoozeListen, wakeWord: !!config.wakeWord, wakeName: wakeName(config), wake: WAKE_OK, wakeGreeting: WAKE_HI,
+      on: !!config.voice, keys: HOTKEYS_OK ? talkSymbols() : null, ready: voiceReady(), mac: MAC, mute: config.muteWhileTalking !== false, autoListen: !!config.autoListen, snoozeListen: !!config.snoozeListen, wakeWord: !!config.wakeWord, wakeName: wakeName(config), wake: WAKE_OK, wakeGreeting: WAKE_HI, wakeSay: wakeSay(),
       // The mic picker: what the voice helper lists, the pick ('' is automatic) and the mic automatic uses now.
       mics: mics.list, mic: config.mic ?? '', micAuto: mics.list.find((x) => x.id === mics.auto)?.name ?? '',
       download: NEEDS_MODEL && config.voice && !voiceReady() ? { status: voiceModel.status, pct: voiceModel.total ? Math.floor((voiceModel.done / voiceModel.total) * 100) : 0, size: sizeLabel() } : null,
@@ -2127,7 +2130,7 @@ async function onMenu(id, via) {
     const r = cleanWakeName(typed);
     if (!r.ok) { say(r.why, 'concerned'); return; }
     config.wakeName = r.name; saveConfig(); agentStale = true; voiceConfig(); menu();
-    say(config.wakeWord ? `Got it. Say "${wakePhrase()}" and I'm listening.` : `Saved. Turn on the wake word, then say "${wakePhrase()}".`, 'happy');
+    say(config.wakeWord ? `Got it. Say ${wakeSay()} and I'm listening.` : `Saved. Turn on the wake word, then say ${wakeSay()}.`, 'happy');
   }
   else if (id === 'voicedl') startVoiceDownload();
   else if (id === 'voice') {
@@ -2268,7 +2271,7 @@ function obState() {
     sound: config.sound,
     voice: VOICE_OK && config.voice,
     autoListen: !!config.autoListen,
-    wakeWord: WAKE_OK && !!config.wakeWord, wakeOk: WAKE_OK, wakePhrase: wakePhrase(),
+    wakeWord: WAKE_OK && !!config.wakeWord, wakeOk: WAKE_OK, wakePhrase: wakePhrase(), wakeSay: wakeSay(),
     voiceModel: NEEDS_MODEL ? { status: voiceModel.status, done: voiceModel.done, total: voiceModel.total, error: voiceModel.error, size: sizeLabel() } : null,
     filesAsked: config.filesAsked,
     look: config.look ?? 'jarvis',

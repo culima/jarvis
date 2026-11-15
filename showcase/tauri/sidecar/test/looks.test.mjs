@@ -65,9 +65,12 @@ assert.ok(!looks.some((m) => m[1] === 'ken'), 'Ken is not a pickable look');
     const cells = [...frame(rad, state, 1).keys()].map((c) => c.split(',').map(Number));
     assert.ok(cells.length > 40, `JARVIS ${size} draws`);
     const far = Math.max(...cells.map(([x, y]) => Math.hypot(x - 100, y - 100)));
-    assert.ok(far < rad * 2.2, `JARVIS ${size} stays its size (${far.toFixed(1)} of ${rad})`);
+    assert.ok(far < rad * 2.2 + 6, `JARVIS ${size} stays its size, loose snippets included (${far.toFixed(1)} of ${rad})`);
   }
   assert.ok(frame(29, {}, 1).size > frame(16.5, {}, 1).size * 1.5, 'large shows more than default');
+  // Made of code: the panes' lines add hundreds of cells to the bare crystal, and they keep moving.
+  assert.ok(frame(29, {}, 1).size > 700, `the large crystal is made of many parts (${frame(29, {}, 1).size} cells)`);
+  for (let n = 0; n < 40; n++) for (const rad of [16.5, 29]) { const far = Math.max(...[...frame(rad, { mode: n % 2 ? 'think' : 'talk', voice: 0.9 }, n * 0.31).keys()].map((c) => Math.hypot(...c.split(',').map((v) => v - 100)))); assert.ok(far < rad * 2.2 + 6, `at any moment (${far.toFixed(1)} of ${rad})`); }
   const same = (a, b) => a.size === b.size && [...a].every(([c, l]) => b.get(c) === l);
   assert.ok(!same(frame(29, {}, 1), frame(29, {}, 1.5)), 'it turns: two moments differ');
   const tip = [];

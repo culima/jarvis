@@ -567,7 +567,7 @@
       // Talking hands-free (needs voice): open the mic for an answer, and where the helper can, wake on the phrase.
       $('talk-rows').hidden = !state?.voice;
       $('wake-row').hidden = !state?.wakeOk;
-      if (state?.wakePhrase) $('wake-says').textContent = `Say “${state.wakePhrase}” to talk. Mic stays on.`;
+      if (state?.wakeSay) $('wake-says').textContent = `Say ${state.wakeSay} to talk. Mic stays on.`;
       $('autolisten-switch').setAttribute('aria-checked', String(!!state?.autoListen));
       $('wake-switch').setAttribute('aria-checked', String(!!state?.wakeWord));
       nav();

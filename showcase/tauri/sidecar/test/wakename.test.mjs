@@ -1,6 +1,6 @@
 // The wake word's name: what can be saved, and why not. Run: npm test
 import assert from 'node:assert/strict';
-import { cleanWakeName, hasWakeWord, wakeGreeting, wakeName } from '../wakename.mjs';
+import { cleanWakeName, hasWakeWord, wakeGreeting, wakeName, wakesOnName } from '../wakename.mjs';
 
 assert.deepEqual(cleanWakeName('Jarvis'), { ok: true, name: 'Jarvis' });
 assert.deepEqual(cleanWakeName('  jarvis '), { ok: true, name: 'Jarvis' });
@@ -23,4 +23,5 @@ assert.equal(wakeGreeting('win32'), 'Alright');
 assert.equal(wakeGreeting('darwin'), 'Hey');
 assert.ok(hasWakeWord('win32') && hasWakeWord('darwin') && !hasWakeWord('linux'), 'the wake word: macOS and Windows');
 assert.equal(wakeName({ wakeName: 'Jarvis' }), 'Jarvis');
+assert.ok(wakesOnName('win32') && !wakesOnName('darwin'), 'the name alone wakes it on Windows');
 console.log('wake name tests: passed');

@@ -1,5 +1,6 @@
-// JARVIS look for the sidekick: no face and no body. A crystal of light: a shell of twenty facets turning round a
-// smaller, counter-turning core with a lit heart, with shards in orbit. The voice pushes the shell's points out
+// JARVIS look for the sidekick: no face and no body. A crystal of light made of code: a shell of twenty facets,
+// each a pane of scrolling lines of code (hundreds of little words of light), turning round a smaller,
+// counter-turning core with a lit heart, with shards in orbit and loose snippets drifting off it. The voice pushes the shell's points out
 // like a star; thinking lifts the facets apart and sends pulses along their edges; asleep it folds small and dim.
 // The cursor form is a HUD reticle, and the moments the goo blob acts out (heart, bolt, alarm, anger, flame)
 // become HUD read-outs here.
@@ -35,6 +36,9 @@
     };
   };
 
+  // A repeatable stream of numbers from a seed: the same line of code every frame until its seed changes.
+  const stream = (seed) => { let s = (seed * 2654435761) >>> 0; return () => (s = (Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9) >>> 0) >>> 9; };
+
   // HUD glyphs for the blob's moments, drawn as read-outs beside the globe: heart, bolt, alarm, anger, flame.
   const GLYPH = {
     heart: ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'],
@@ -67,7 +71,7 @@
       const spinRate = mode === 'think' ? 1.5 : A === 'hype' ? 3 : sleepy ? 0.08 : talking ? 0.5 : 0.3;
       st.spin = (st.spin ?? 0) + spinRate * dt;
       // How far the facets stand apart: lifted while it thinks, a pop on 'hype', a breath with the voice.
-      const apart = sleepy ? 0 : mode === 'think' ? 0.2 + 0.05 * Math.sin(t * 2.6) : A === 'hype' ? 0.16 * Math.abs(Math.sin(t * 6.5)) : talking ? 0.05 * v : 0.012 + 0.012 * Math.sin(t * 1.4);
+      const apart = sleepy ? 0 : mode === 'think' ? 0.2 + 0.05 * Math.sin(t * 2.6) : A === 'hype' ? 0.16 * Math.abs(Math.sin(t * 6.5)) : talking ? 0.06 + 0.05 * v : 0.055 + 0.012 * Math.sin(t * 1.4);
       st.apart = (st.apart ?? 0) + (apart - (st.apart ?? 0)) * Math.min(1, dt * 7);
       // Asleep it folds down small; awake it grows back.
       st.fold = (st.fold ?? 0) + ((sleepy ? 1 : 0) - (st.fold ?? 0)) * Math.min(1, dt * 3);
@@ -91,13 +95,47 @@
           put(x, y, clamp((z > 0.45 ? 3 : 2) + boost - dim, 1, L - 1));
         }
       };
+      // A facet is a pane of code: rows of short words from its first corner down to the edge across, each line with
+      // its own indent, words and length. The lines travel down the pane (faster while it talks, rewriting fast
+      // while it thinks), the newest one is typed out letter by letter, and now and then a word is lit.
+      st.scroll = (st.scroll ?? 0) + (mode === 'think' ? 3.4 : talking ? 1.5 + v : 0.45) * dt;
+      const code = (fi, a, b, c, facing, glint) => {
+        const rows = Math.floor(Math.hypot((b[0] + c[0]) / 2 - a[0], (b[1] + c[1]) / 2 - a[1]) / 2);
+        if (rows < 3) return;
+        const scroll = st.scroll + fi * 1.37, step = Math.floor(scroll), shift = scroll - step;
+        const base = facing > 0.5 ? 2 : 1, faint = facing < 0.18;
+        for (let r = 0; r < rows; r++) {
+          const u = (r + shift) / rows;
+          if (u < 0.16 || u > 0.92) continue;
+          const px = a[0] + (b[0] - a[0]) * u, py = a[1] + (b[1] - a[1]) * u, qx = a[0] + (c[0] - a[0]) * u, qy = a[1] + (c[1] - a[1]) * u;
+          const len = Math.floor(Math.hypot(qx - px, qy - py));
+          if (len < 5) continue;
+          const next = stream(fi * 977 + (r - step) * 131 + 7);
+          // The newest line is still being typed.
+          const typed = r === Math.ceil(0.16 * rows - shift) ? 2 + shift * len * 1.6 : len;
+          let pos = 2 + (next() % 4);
+          while (pos < len - 2 && pos < typed) {
+            const word = 1 + (next() % 4), lit = next() % 7 === 0 || (talking && next() % 5 === 0 && v > 0.55);
+            for (let w = 0; w < word && pos + w < len - 2 && pos + w < typed; w++) {
+              const f = (pos + w) / len, x = px + (qx - px) * f, y = py + (qy - py) * f;
+              if (faint && th(Math.floor(x), Math.floor(y)) > 0.55) continue;
+              put(x, y, clamp(base + (lit ? 1 : 0) + glint, 1, L - 1));
+            }
+            pos += word + 1 + (next() % 2);
+            if (next() % 5 === 0) break; // a short line
+          }
+          // The typing cursor: one bright cell at the end of the newest line.
+          if (typed < len - 2 && facing > 0.18) { const f = Math.min(pos, typed) / len; put(px + (qx - px) * f, py + (qy - py) * f, L); }
+        }
+      };
       // The shell's points: the voice pushes each one out in turn, so the crystal bristles like a star as it speaks.
       const wavy = talking ? v : A === 'hype' ? 0.6 : 0;
       const reach = ICO.map((_, i) => 1 + wavy * 0.3 * Math.max(0, Math.sin(t * (mode === 'talk' ? 10 : 5) + i * 2.4)) * (0.55 + 0.45 * Math.sin(t * 3.1 + i)));
       const turned = ICO.map(shell);
       // Twenty facets, each a triangle of edges. Lifted apart, each slides out along its own normal and shrinks a
       // little, so the gaps show; together, neighbours share their edges.
-      for (const [i, j, l, nrm] of ICO_F) {
+      for (const FACET of ICO_F) {
+        const [i, j, l, nrm] = FACET;
         const n = shell(nrm), lift = ex * 1.1, shrink = 1 - ex * 0.9;
         const corner = (m) => {
           const q = turned[m], r = reach[m];
@@ -107,6 +145,7 @@
         // A facet turned toward the light (top left, toward the viewer) glints.
         const glint = n[2] > 0.2 && -n[0] * 0.5 - n[1] * 0.62 + n[2] * 0.6 > 0.78 ? 1 : 0;
         edge(a, b, glint); edge(b, c, glint); edge(c, a, glint);
+        if (rad >= 13 && !dim && n[2] > -0.05) code(ICO_F.indexOf(FACET), a, b, c, n[2], glint);
       }
       // Its twelve points: lit nodes, the near ones brightest; now and then one sparkles.
       const spark = Math.floor(t * 1.3) % 12, sparkA = (t * 1.3) % 1;
@@ -159,6 +198,20 @@
           if (tr) { if (tr < 3 || th(Math.floor(p[0]), Math.floor(p[1])) < 0.5) put(p[0], p[1], tr < 2 ? 2 : 1); continue; }
           put(p[0], p[1], q[2] > 0 ? L : 3);
           if (rad >= 10) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) put(p[0] + dx, p[1] + dy, q[2] > 0 ? 3 : 2);
+        }
+      }
+      // Loose snippets: short words of code that leave the crystal, drift outward and fade, more of them while it
+      // talks or thinks. Each has its own direction, length and moment.
+      if (rad >= 13) {
+        const many = mode === 'think' ? 22 : talking ? 18 : 10, life = 2.6;
+        for (let n = 0; n < many; n++) {
+          const born = Math.floor((t + n * 0.37) / life), age = ((t + n * 0.37) % life) / life;
+          const next = stream(n * 7919 + born * 104729);
+          const ang = (next() % 6283) / 1000, word = 2 + (next() % 4), start = 1.12 + (next() % 20) / 100;
+          const d = rad * (start + age * (0.4 + (next() % 30) / 100));
+          const x0 = cx + Math.cos(ang) * d, y0 = cy + Math.sin(ang) * d * 0.92;
+          const lvl = age < 0.15 ? 3 : age < 0.5 ? 2 : 1;
+          for (let w = 0; w < word; w++) { if (age > 0.7 && th(Math.floor(x0 + w), Math.floor(y0)) < age - 0.25) continue; put(x0 + w, y0, lvl); }
         }
       }
       // Thinking: pulses of light run along the shell's edges, one after another.

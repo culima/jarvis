@@ -4,6 +4,8 @@
 export const DEFAULT_WAKE_NAME = 'Jarvis';
 /** The greeting the voice helper listens for on this system. */
 export const wakeGreeting = (platform) => (platform === 'darwin' ? 'Hey' : 'Alright');
+/** Whether the name by itself wakes it too, as the first thing said ("Jarvis, …"): the Windows helper (wake.rs). */
+export const wakesOnName = (platform) => platform === 'win32';
 /** Where the voice helper can listen for the phrase: macOS (voice/main.swift) and Windows (voice-win). */
 export const hasWakeWord = (platform) => platform === 'darwin' || platform === 'win32';
 // Words people say all the time: as a wake name, "Hey there"-style chatter would wake Roamies.
