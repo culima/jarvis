@@ -89,13 +89,20 @@
       const v = mode === 'talk' || mode === 'listen' ? st.breath : raw;
       const sleepy = st.sleepy > 0.5, talking = mode === 'talk' || mode === 'listen', thinking = mode === 'think';
       // Turn: the whole globe, slowly. Churn: the bands against each other, a crawl at rest and a race in thought.
-      st.spin = (st.spin ?? 0) + (thinking ? 0.9 : A === 'hype' ? 3.2 : sleepy ? 0.05 : talking ? 0.4 : 0.24) * dt;
-      st.churn = (st.churn ?? 0) + (thinking ? 4.6 : A === 'hype' ? 2.4 : sleepy ? 0 : talking ? 0.3 + v * 0.5 : 0.1) * dt;
+      // Both change pace gradually, and so does everything else that belongs to thought (think: 0 to 1), so one
+      // state runs into the next instead of snapping.
+      const ease = Math.min(1, dt * 2.2);
+      st.think = (st.think ?? 0) + ((thinking ? 1 : 0) - (st.think ?? 0)) * ease;
+      st.spinV = (st.spinV ?? 0.24) + ((thinking ? 0.9 : sleepy ? 0.05 : talking ? 0.4 : 0.24) - (st.spinV ?? 0.24)) * ease;
+      st.churnV = (st.churnV ?? 0.1) + ((thinking ? 4.6 : sleepy ? 0 : talking ? 0.3 + v * 0.5 : 0.1) - (st.churnV ?? 0.1)) * ease;
+      st.spin = (st.spin ?? 0) + st.spinV * dt;
+      st.churn = (st.churn ?? 0) + st.churnV * dt;
+      const tk = st.think;
       // Swell: how far it has opened. It follows the voice closely (out fast, back a little slower), so it opens
       // on each syllable and closes in the gaps; a cheer pops it, thought holds it a touch open.
-      const want = sleepy ? 0.04 : mode === 'talk' ? 0.1 + 0.34 * v : mode === 'listen' ? 0.1 + 0.2 * v : A === 'hype' ? 0.3 * Math.abs(Math.sin(t * 6.5)) : thinking ? 0.1 + 0.04 * Math.sin(t * 9) : 0.1 + 0.02 * Math.sin(t * 1.4);
+      const want = sleepy ? 0.04 : mode === 'talk' ? 0.1 + 0.62 * v : mode === 'listen' ? 0.1 + 0.2 * v : thinking ? 0.1 + 0.006 * Math.sin(t * 3) : 0.1 + 0.02 * Math.sin(t * 1.4);
       const was = st.swell ?? 0;
-      st.swell = was + (want - was) * Math.min(1, dt * (want > was ? 18 : 9));
+      st.swell = was + (want - was) * Math.min(1, dt * (mode === 'talk' || mode === 'listen' ? (want > was ? 18 : 9) : 3));
       st.fold = (st.fold ?? 0) + ((sleepy ? 1 : 0) - (st.fold ?? 0)) * Math.min(1, dt * 3);
       const fold = st.fold, swell = st.swell, dim = fold > 0.5 ? 1 : 0;
       const wobble = st.dizzy > 0.5 ? Math.sin(t * 9) * 0.3 : 0;
@@ -103,7 +110,7 @@
       const lean = turner(st.look[0] * 0.45, -0.42 + 0.1 * Math.sin(t * 0.41) + st.look[1] * 0.25 + wobble, 0.12 * Math.sin(t * 0.53));
       // Squash from the body's bounces, and a shake when it's upset.
       const sq = st.sq ?? 0, sx = 1 + sq * 0.05, sy = 1 - sq * 0.04;
-      const shake = A === 'upset' && (st.actA ?? 0) % 0.9 < 0.32 ? Math.sin(t * 48) * 0.6 : 0;
+      const shake = 0;
       const size = rad * (1 + swell); // asleep it dims and slows, but keeps its size
       // Detail by size: the fragments cover the globe about as densely at every size, and the nearest are written
       // out as letters of code once there's room. (In cells the radius is about 6 small, 13 default, 28 large, 56 huge.)
@@ -117,7 +124,7 @@
         const y = 1 - (2 * (i + 0.5)) / count, ring = Math.sqrt(1 - y * y), band = Math.floor(((y + 1) / 2) * BANDS);
         const way = band % 2 ? 1 : -1, own = 0.6 + ((band * 7) % 5) * 0.22;
         // In thought the fragments also jump about in their bands.
-        const jump = thinking ? 0.22 * Math.sin(t * (11 + f.kind * 9) + f.phi) : 0;
+        const jump = tk * 0.22 * Math.sin(t * (11 + f.kind * 9) + f.phi);
         const own0 = i * 2.399963 + st.churn * way * own + jump;
         let px = Math.cos(own0) * ring, pz = Math.sin(own0) * ring;
         // The globe is broken into shards: plates that stand at their own heights, with cracks between them and a
@@ -127,8 +134,8 @@
         if (f.shell === 1) for (const pl of PLATES) { const d = px * pl.x + y * pl.y + pz * pl.z; if (d > best) { next2 = best; best = d; P = pl; } else if (d > next2) next2 = d; }
         const outer = f.shell === 1;
         if (outer && !mini && (best - next2 < 0.03 || (P.open && f.kind > 0.14))) continue;
-        const lift = outer ? P.h + 0.035 * Math.sin(t * P.pace + P.phi) + (talking ? v * P.far * 0.15 : 0) + (thinking ? 0.06 * Math.sin(t * 9 + P.phi) : 0) : 0;
-        const r = f.shell * (1 + lift + (f.far - 0.5) * 0.09 + (talking ? v * f.far * 0.1 : 0) + (thinking ? 0.05 * Math.sin(t * 14 + f.phi) : 0));
+        const lift = outer ? P.h + 0.035 * Math.sin(t * P.pace + P.phi) + (talking ? v * P.far * 0.24 : 0) + tk * 0.01 * Math.sin(t * 4 + P.phi) : 0;
+        const r = f.shell * (1 + lift + (f.far - 0.5) * 0.09 + (talking ? v * f.far * 0.1 : 0) + tk * 0.012 * Math.sin(t * 14 + f.phi));
         const cs = Math.cos(st.spin), sn = Math.sin(st.spin);
         [px, pz] = [px * cs - pz * sn, px * sn + pz * cs];
         const q = lean([px * r, y * r, pz * r]);

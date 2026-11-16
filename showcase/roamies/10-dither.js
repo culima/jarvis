@@ -66,6 +66,8 @@
       const pres = { state: 'shown', u: 1, v: null, tx: 0, ty: 0, landed: false, launched: false, crouched: false };
       let mask = null, EW = 800, EH = 600;
       const startAct = (name, quiet) => {
+        // JARVIS doesn't act moments out: no hops, spins or icons popping up beside it.
+        if (look === 'jarvis') { pending = null; return; }
         if (pres.state !== 'shown') { pending = name; return; }
         act = { name, a: 0, dur: name === 'upset' ? 3.4 : name === 'hype' ? 2.8 : 3.1 };
         m.mode = 'rest'; m.rest = act.dur;
@@ -252,7 +254,7 @@
           for (let gx = Math.floor((shX - sw * 1.6) / P); gx <= Math.ceil((shX + sw * 1.6) / P); gx++) {
             const x = (gx + 0.5) * P, y = (gy + 0.5) * P, k = cell(gx - gx0, gy - gy0);
             if (k === '#' || k === 'o') continue;
-            const sh = shK * Math.exp(-((y - sy) ** 2) / (R * R * 0.05) - ((x - shX) ** 2) / (sw * sw));
+            const sh = look === 'jarvis' ? 0 : shK * Math.exp(-((y - sy) ** 2) / (R * R * 0.05) - ((x - shX) ** 2) / (sw * sw));
             if (sh * 0.85 > th(gx, gy)) setPx(gx, gy, PAL[0], 220);
           }
         }
@@ -485,7 +487,7 @@
         if (!J) return;
         const A = act?.name;
         Object.assign(jst, {
-          t, mode: pose?.mode ?? null, heard: pose?.heard, voice: window.Roamie.voiceOut?.playing() ? window.Roamie.voiceOut.level() : null, act: A ?? null, actA: act?.a ?? 0,
+          t, dt: env.dt ?? 1 / 60, mode: pose?.mode ?? null, heard: pose?.heard, voice: window.Roamie.voiceOut?.playing() ? window.Roamie.voiceOut.level() : null, act: A ?? null, actA: act?.a ?? 0,
           open: face.open, look: [face.lookX, face.lookY], speed: m.speed, vx: m.vx, sq: sq.x,
           wide: face.wide, dizzy: face.dizzy, happy: face.happy, sleepy: Math.max(env.sleepy ?? 0, face.sleepy ?? 0),
           mouth: pose?.mouth ?? (act && { wave: null, hype: 'shout', remind: 'o', upset: 'frown', motivate: 'grin' }[A]),
@@ -501,12 +503,6 @@
         const k = { put: jput, L, th };
         if (form === 'cursor') J.cursor(k, Math.round(bx / P), Math.round(by / P), Math.round(bx / P) - AX, Math.round(by / P) - AY, jst);
         else {
-          // A faint projector glow on the floor under the hologram.
-          const fy = (by + R * 1.3) / P, fw = (R * 0.75) / P;
-          for (let y = -1; y <= 1; y++) for (let x = -Math.ceil(fw); x <= Math.ceil(fw); x++) {
-            const u = 1 - Math.hypot(x / fw, y / 1.4);
-            if (u > 0 && u * 0.9 > th(Math.round(bx / P) + x, Math.round(fy) + y)) jput(bx / P + x, fy + y, u > 0.5 ? 2 : 1);
-          }
           J.body(k, bx / P, by / P, R / P, jst);
         }
         jflush();
@@ -800,7 +796,7 @@
                 const lam = clamp(Nx * lx + Ny * ly + Nz * lz, 0, 1);
                 v = 0.38 + lam * 0.62 + Math.pow(lam, 24) * 0.6;
               } else {
-                const shadow = shK * Math.exp(-((y - (shY + R * 1.15)) ** 2) / (R * R * 0.05) - ((x - shX) ** 2) / (R * R * 0.9 * (0.4 + 0.6 * shK)));
+                const shadow = look === 'jarvis' ? 0 : shK * Math.exp(-((y - (shY + R * 1.15)) ** 2) / (R * R * 0.05) - ((x - shX) ** 2) / (R * R * 0.9 * (0.4 + 0.6 * shK)));
                 if (clear) {
                   if (shadow * 0.85 > th(gx, gy)) setPx(gx, gy, PAL[0], 220);
                   continue;
