@@ -1,7 +1,7 @@
 name: Build
 on:
   push:
-    branches: [main]
+    branches: [os, "os-*"]
   workflow_dispatch:
 concurrency:
   group: build-${{ github.ref }}
