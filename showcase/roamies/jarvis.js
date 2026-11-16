@@ -93,7 +93,7 @@
       st.churn = (st.churn ?? 0) + (thinking ? 4.6 : A === 'hype' ? 2.4 : sleepy ? 0 : talking ? 0.3 + v * 0.5 : 0.1) * dt;
       // Swell: how far it has opened. It follows the voice closely (out fast, back a little slower), so it opens
       // on each syllable and closes in the gaps; a cheer pops it, thought holds it a touch open.
-      const want = sleepy ? -0.12 : mode === 'talk' ? 0.4 * v : mode === 'listen' ? 0.24 * v : A === 'hype' ? 0.3 * Math.abs(Math.sin(t * 6.5)) : thinking ? 0.08 + 0.04 * Math.sin(t * 9) : 0.02 * Math.sin(t * 1.4);
+      const want = sleepy ? 0.04 : mode === 'talk' ? 0.1 + 0.34 * v : mode === 'listen' ? 0.1 + 0.2 * v : A === 'hype' ? 0.3 * Math.abs(Math.sin(t * 6.5)) : thinking ? 0.1 + 0.04 * Math.sin(t * 9) : 0.1 + 0.02 * Math.sin(t * 1.4);
       const was = st.swell ?? 0;
       st.swell = was + (want - was) * Math.min(1, dt * (want > was ? 18 : 9));
       st.fold = (st.fold ?? 0) + ((sleepy ? 1 : 0) - (st.fold ?? 0)) * Math.min(1, dt * 3);
@@ -104,7 +104,7 @@
       // Squash from the body's bounces, and a shake when it's upset.
       const sq = st.sq ?? 0, sx = 1 + sq * 0.05, sy = 1 - sq * 0.04;
       const shake = A === 'upset' && (st.actA ?? 0) % 0.9 < 0.32 ? Math.sin(t * 48) * 0.6 : 0;
-      const size = rad * (1 - fold * 0.4) * (1 + swell);
+      const size = rad * (1 + swell); // asleep it dims and slows, but keeps its size
       // Detail by size: the fragments cover the globe about as densely at every size, and the nearest are written
       // out as letters of code once there's room. (In cells the radius is about 6 small, 13 default, 28 large, 56 huge.)
       const count = Math.round(clamp(rad * rad * 0.62, mini ? 46 : 96, FRAGS.length)), letters = rad >= 18, words = rad >= 11;

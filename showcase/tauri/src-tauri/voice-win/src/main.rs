@@ -195,6 +195,19 @@ impl NoiseFloor {
     }
 }
 
+/// A call from across the room, or into a quiet mic, is too faint for the recogniser, which then writes nothing:
+/// sound that is quiet (but not silence) is brought up to a speaking level first. Returns it with its own peak.
+fn loud_enough(mut audio: Vec<f32>) -> (Vec<f32>, f32) {
+    let peak = audio.iter().fold(0f32, |m, s| m.max(s.abs()));
+    if peak > 0.004 && peak < 0.3 {
+        let gain = (0.5 / peak).min(40.0);
+        for s in &mut audio {
+            *s *= gain;
+        }
+    }
+    (audio, peak)
+}
+
 /// What was said, ignoring case and punctuation: a re-read that only moves a comma isn't new words.
 fn words(text: &str) -> String {
     text.chars().filter(|c| c.is_alphanumeric() || c.is_whitespace()).flat_map(char::to_lowercase).collect::<String>().split_whitespace().collect::<Vec<_>>().join(" ")
@@ -553,7 +566,8 @@ impl Voice {
                     }
                 } else if !self.wake_closed {
                     self.wake_closed = true;
-                    let audio = self.buf.lock().unwrap().clone();
+                    let (audio, peak) = loud_enough(self.buf.lock().unwrap().clone());
+                    log(&format!("wake: last reading of {:.1}s, peak {:.2}", audio.len() as f64 / RATE as f64, peak));
                     if audio.len() >= RATE as usize / 2 {
                         if let Some(engine) = &self.engine {
                             self.read_at = now;
@@ -584,7 +598,7 @@ impl Voice {
         if self.reading || now - self.read_at < WAKE_READ_EVERY {
             return;
         }
-        let audio = self.buf.lock().unwrap().clone();
+        let (audio, _) = loud_enough(self.buf.lock().unwrap().clone());
         if audio.len() < RATE as usize / 2 {
             return;
         }
