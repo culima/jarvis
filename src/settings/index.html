@@ -17,6 +17,8 @@
 <main>
   <nav aria-label="Settings">
     <button class="tab on" data-pane="appearance" type="button">Appearance</button>
+    <button class="tab" data-pane="brain" type="button">Brain</button>
+    <button class="tab" data-pane="voice" type="button">Voice</button>
     <button class="tab" data-pane="system" type="button">System</button>
   </nav>
   <section id="appearance" class="pane on">
@@ -38,6 +40,47 @@
       <div class="seg" id="states"></div>
     </div>
   </section>
+  <section id="brain" class="pane">
+    <h2>Brain</h2>
+    <div class="row">
+      <div><b>Your name</b><small>What he calls you.</small></div>
+      <input id="name" type="text" maxlength="40" class="wide" aria-label="Your name">
+    </div>
+    <div class="row">
+      <div><b>Service</b><small>Any OpenAI-compatible address: OpenAI, another provider, or a model on this PC.</small></div>
+      <input id="base" type="text" class="wide" spellcheck="false" aria-label="Service address">
+    </div>
+    <div class="row">
+      <div><b>API key</b><small id="key-state">Not set. Stored encrypted on this PC, never shown again.</small></div>
+      <div class="hex"><input id="key" type="password" class="wide" autocomplete="off" aria-label="API key" placeholder="paste key"><button id="key-set" type="button">Save</button></div>
+    </div>
+    <div class="row">
+      <div><b>Model</b><small id="model-state">The model he thinks with.</small></div>
+      <div class="hex"><select id="model" aria-label="Model"></select><button id="model-load" type="button">Load list</button></div>
+    </div>
+    <div class="row">
+      <div><b>Speech model</b><small>Turns what you say into text (a transcription model from the same list).</small></div>
+      <select id="stt" aria-label="Speech model"></select>
+    </div>
+  </section>
+  <section id="voice" class="pane">
+    <h2>Voice</h2>
+    <div class="row">
+      <div><b>Voice</b><small>The voices installed in Windows.</small></div>
+      <select id="voice-name" aria-label="Voice"></select>
+    </div>
+    <div class="row">
+      <div><b>Speed</b><small id="rate-state">1.0×</small></div>
+      <input id="rate" type="range" min="0.6" max="1.6" step="0.05" aria-label="Speaking speed">
+    </div>
+    <div class="row">
+      <div><b>Try it</b><small>He says a line in this voice.</small></div>
+      <div class="seg"><button id="voice-test" type="button">Speak</button></div>
+    </div>
+    <div class="row">
+      <div><b>Shortcuts</b><small>Ctrl+Shift+Space: type to him. Ctrl+Shift+J: talk to him (he stops listening when you stop talking).</small></div>
+    </div>
+  </section>
   <section id="system" class="pane">
     <h2>System</h2>
     <div class="row">
@@ -45,7 +88,7 @@
       <button class="switch" id="login" type="button" role="switch" aria-checked="false"><i></i></button>
     </div>
     <div class="row">
-      <div><b>Coming next</b><small>Voice, the wake word, his brain and screen tools are being rebuilt for this version.</small></div>
+      <div><b>Coming next</b><small>The wake word, seeing your screen, and acting in apps.</small></div>
     </div>
   </section>
 </main>

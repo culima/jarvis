@@ -37,3 +37,6 @@ button { font: inherit; }
 .switch[aria-checked="true"] { border-color: var(--c); }
 .switch[aria-checked="true"] i { left: 25px; background: var(--c); box-shadow: 0 0 10px var(--c); }
 @media (prefers-reduced-motion: reduce) { .mark { animation: none; } .switch i { transition: none; } }
+input.wide, select { width: 260px; }
+select { background: #05060a; border: 1px solid var(--line); color: var(--text); font: inherit; padding: 6px 8px; }
+input[type="range"] { width: 200px; padding: 0; accent-color: var(--c); }

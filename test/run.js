@@ -14,6 +14,7 @@ assert.equal('extra' in clean({ extra: 1 }), false);
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jarvis-'));
 createConfig(dir).set({ size: 'small', openAtLogin: true });
 assert.deepEqual(createConfig(dir).get(), { ...DEFAULTS, size: 'small', openAtLogin: true });
+assert.equal(clean({ voiceRate: 9 }).voiceRate, 2);
 fs.writeFileSync(path.join(dir, 'config.json'), '{broken');
 assert.deepEqual(createConfig(dir).get(), DEFAULTS, 'an unreadable file falls back to the defaults');
 
@@ -49,4 +50,17 @@ const wide = (voice) => {
 };
 assert.ok(wide(0.5)[1] > 400, 'hundreds of parts');
 assert.ok(wide(0.5)[0] > wide(0)[0] * 1.2, 'it opens with the voice');
-console.log('all checks passed');
+// The brain: replies are cut into sentences as they stream, and a refused key is reported in plain words.
+const { sentences, createBrain } = require('../src/main/brain');
+assert.deepEqual(sentences('Hello there. How are you? I am'), [['Hello there.', 'How are you?'], 'I am']);
+assert.deepEqual(sentences('It is 3. 14 and so on. Next'), [['It is 3. 14 and so on.'], 'Next']);
+(async () => {
+  const enc = new TextEncoder();
+  const body = (async function* () { for (const d of ['Good ', 'evening. ', 'All systems ', 'are fine.']) yield enc.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: d } }] })}\n\n`); yield enc.encode('data: [DONE]\n\n'); })();
+  const said = [];
+  const brain = createBrain({ fetch: async () => ({ ok: true, body }) });
+  assert.equal(await brain.ask('status?', { model: 'm', onSentence: (x) => said.push(x) }), 'Good evening. All systems are fine.');
+  assert.deepEqual(said, ['Good evening.', 'All systems are fine.']);
+  await assert.rejects(() => createBrain({ fetch: async () => ({ ok: false, status: 401, json: async () => ({ error: { message: 'Bad key' } }) }) }).ask('x', { model: 'm' }), /Bad key/);
+  console.log('all checks passed');
+})().catch((e) => { console.error(e); process.exit(1); });

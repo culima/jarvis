@@ -141,7 +141,8 @@
     show: (m) => { me.shown = m.on === false ? 0 : 1; if (me.shown) appearAt = performance.now(); },
     target: (m) => { target = m.rect ?? null; roam.hold = 0; placeNow(now, true); },
   };
+  window.Jarvis.handlers = on; window.Jarvis.state = st;
   window.Jarvis.receive = (m) => on[m?.kind]?.(m);
   window.bridge?.onMessage?.((m) => window.Jarvis.receive(m));
-  window.bridge?.ready?.();
+  // voice.js adds its handlers first, then says the page is ready.
 })();
