@@ -1,0 +1,39 @@
+:root { --c: #a06bff; --bg: #07080c; --panel: #0d0f16; --line: color-mix(in srgb, var(--c) 28%, #10121a); --text: #e9e6f5; --dim: #8b88a0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 "Cascadia Mono", "Consolas", ui-monospace, monospace; }
+body { display: flex; flex-direction: column; background-image: linear-gradient(color-mix(in srgb, var(--c) 5%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--c) 5%, transparent) 1px, transparent 1px); background-size: 28px 28px; }
+header { display: flex; align-items: center; gap: 16px; padding: 22px 28px; border-bottom: 1px solid var(--line); }
+.mark { width: 44px; height: 44px; border: 1px solid var(--c); border-radius: 50%; display: grid; place-items: center; box-shadow: 0 0 18px color-mix(in srgb, var(--c) 45%, transparent), inset 0 0 12px color-mix(in srgb, var(--c) 30%, transparent); animation: turn 9s linear infinite; }
+.mark i { width: 12px; height: 12px; background: var(--c); transform: rotate(45deg); box-shadow: 0 0 12px var(--c); }
+@keyframes turn { to { transform: rotate(360deg); } }
+h1 { margin: 0; font-size: 20px; letter-spacing: 0.42em; font-weight: 600; }
+.sub { margin: 2px 0 0; color: var(--dim); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+#status { color: var(--c); }
+main { flex: 1; display: grid; grid-template-columns: 190px 1fr; min-height: 0; }
+nav { border-right: 1px solid var(--line); padding: 18px 12px; display: flex; flex-direction: column; gap: 6px; }
+.tab { all: unset; cursor: pointer; padding: 9px 14px; color: var(--dim); border-left: 2px solid transparent; letter-spacing: 0.06em; }
+.tab:hover { color: var(--text); }
+.tab.on { color: var(--text); border-left-color: var(--c); background: linear-gradient(90deg, color-mix(in srgb, var(--c) 16%, transparent), transparent); }
+.tab:focus-visible, button:focus-visible, input:focus-visible { outline: 1px solid var(--c); outline-offset: 2px; }
+.pane { display: none; padding: 22px 30px; overflow: auto; }
+.pane.on { display: block; }
+h2 { margin: 0 0 14px; font-size: 12px; font-weight: 600; letter-spacing: 0.3em; text-transform: uppercase; color: var(--c); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 14px 16px; margin-bottom: 10px; background: var(--panel); border: 1px solid var(--line); clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px)); }
+.row b { font-weight: 600; display: block; }
+.row small { color: var(--dim); }
+.swatches { display: flex; gap: 8px; }
+.swatches button { all: unset; cursor: pointer; width: 24px; height: 24px; background: var(--s); transform: rotate(45deg) scale(0.8); border: 1px solid transparent; }
+.swatches button.on { border-color: #fff; box-shadow: 0 0 12px var(--s); }
+.hex { display: flex; gap: 8px; }
+input { background: #05060a; border: 1px solid var(--line); color: var(--text); font: inherit; padding: 6px 10px; width: 108px; }
+button { font: inherit; }
+.hex button, .seg button { cursor: pointer; background: transparent; color: var(--text); border: 1px solid var(--line); padding: 6px 12px; }
+.hex button:hover, .seg button:hover { border-color: var(--c); }
+.seg { display: flex; }
+.seg button + button { border-left: 0; }
+.seg button.on { background: color-mix(in srgb, var(--c) 24%, transparent); border-color: var(--c); color: #fff; }
+.switch { all: unset; cursor: pointer; width: 44px; height: 22px; border: 1px solid var(--line); position: relative; }
+.switch i { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: var(--dim); transition: left 0.15s, background 0.15s; }
+.switch[aria-checked="true"] { border-color: var(--c); }
+.switch[aria-checked="true"] i { left: 25px; background: var(--c); box-shadow: 0 0 10px var(--c); }
+@media (prefers-reduced-motion: reduce) { .mark { animation: none; } .switch i { transition: none; } }

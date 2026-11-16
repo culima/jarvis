@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
+<title>Jarvis</title>
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<header>
+  <div class="mark" aria-hidden="true"><i></i></div>
+  <div>
+    <h1>JARVIS</h1>
+    <p class="sub"><span id="version">0.1.0</span> · <span id="status">online</span></p>
+  </div>
+</header>
+<main>
+  <nav aria-label="Settings">
+    <button class="tab on" data-pane="appearance" type="button">Appearance</button>
+    <button class="tab" data-pane="system" type="button">System</button>
+  </nav>
+  <section id="appearance" class="pane on">
+    <h2>Appearance</h2>
+    <div class="row">
+      <div><b>Colour</b><small>One colour for everything: Jarvis and this window.</small></div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <div class="row">
+      <div><b>Custom colour</b><small>Any colour as a hex code.</small></div>
+      <div class="hex"><input id="hex" type="text" maxlength="7" spellcheck="false" aria-label="Hex colour"><button id="hex-set" type="button">Apply</button></div>
+    </div>
+    <div class="row">
+      <div><b>Size</b><small>How big he is on your screen.</small></div>
+      <div class="seg" id="sizes"></div>
+    </div>
+    <div class="row">
+      <div><b>Preview a state</b><small>See how he looks while it lasts.</small></div>
+      <div class="seg" id="states"></div>
+    </div>
+  </section>
+  <section id="system" class="pane">
+    <h2>System</h2>
+    <div class="row">
+      <div><b>Open at login</b><small>Start Jarvis when you sign in to Windows.</small></div>
+      <button class="switch" id="login" type="button" role="switch" aria-checked="false"><i></i></button>
+    </div>
+    <div class="row">
+      <div><b>Coming next</b><small>Voice, the wake word, his brain and screen tools are being rebuilt for this version.</small></div>
+    </div>
+  </section>
+</main>
+<script src="settings.js"></script>
+</body>
+</html>

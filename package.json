@@ -1,0 +1,27 @@
+{
+  "name": "jarvis",
+  "productName": "Jarvis",
+  "version": "0.1.0",
+  "description": "Jarvis: a personal desktop assistant",
+  "private": true,
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/run.js",
+    "dist": "electron-builder --win nsis --x64 --publish never"
+  },
+  "dependencies": {
+    "koffi": "^2.9.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "at.culima.jarvis",
+    "productName": "Jarvis",
+    "files": ["src/**/*", "assets/**/*", "package.json"],
+    "win": { "icon": "assets/icon.ico", "target": "nsis" },
+    "nsis": { "oneClick": true, "perMachine": false, "artifactName": "Jarvis-Setup-${version}.exe" }
+  }
+}
