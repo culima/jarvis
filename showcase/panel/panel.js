@@ -746,6 +746,11 @@
           el('span', {}, 'Sync memory', el('small', { title: state.sync.dir, textContent: !state.sync.dir ? 'Share reminders and memory with your other computer' : state.sync.error ? `Not syncing: ${state.sync.error}` : `Via ${state.sync.dir.split(/[\\/]/).filter(Boolean).pop()}${state.sync.at ? ` · ${new Date(state.sync.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}` })),
           state.sync.dir ? [state.sync.paused ? link('Sync anyway', () => act('syncallow'), { k: 'syncallow', danger: true, aria: 'Sync anyway, removing those items on every computer' }) : null,
             link('Stop', () => act('syncstop'), { k: 'syncstop', aria: 'Stop syncing memory' })] : link('Set up', () => act('syncsetup'), { k: 'syncsetup', aria: 'Set up memory sync' })) : null),
+      // The licence notice stays in the app: Jarvis is built on open-source code and carries its licence.
+      group('Licence', null, null,
+        el('div', { className: 'setting' },
+          el('span', {}, 'Open source, AGPL-3.0', el('small', { textContent: 'Jarvis 0.1 is built on Roamies by Ken Kai' })),
+          link('Source', () => send({ type: 'open_link', url: 'https://github.com/KenKaiii/Roamies' }), { k: 'licence-source', aria: 'Open the source code this app is built on' }))),
     ];
   }
   // Who made Roamies: Ken, live (he's drawn like the looks but isn't one), and where to find him.
