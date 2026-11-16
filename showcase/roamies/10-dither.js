@@ -487,7 +487,7 @@
         if (!J) return;
         const A = act?.name;
         Object.assign(jst, {
-          t, dt: env.dt ?? 1 / 60, fx: window.Roamie.jarvisFx ?? null, mode: pose?.mode ?? null, heard: pose?.heard, voice: window.Roamie.voiceOut?.playing() ? window.Roamie.voiceOut.level() : null, act: A ?? null, actA: act?.a ?? 0,
+          t, dt: env.dt ?? 1 / 60, fx: window.Roamie.jarvisFx ?? (pres.state === 'in' && pres.u < 1 ? { gone: Math.pow(1 - pres.u, 1.5) } : null), scan: (performance.now() - (window.Roamie.jarvisScanAt ?? -1e9)) / 1000, mode: pose?.mode ?? null, heard: pose?.heard, voice: window.Roamie.voiceOut?.playing() ? window.Roamie.voiceOut.level() : null, act: A ?? null, actA: act?.a ?? 0,
           open: face.open, look: [face.lookX, face.lookY], speed: m.speed, vx: m.vx, sq: sq.x,
           wide: face.wide, dizzy: face.dizzy, happy: face.happy, sleepy: Math.max(env.sleepy ?? 0, face.sleepy ?? 0),
           mouth: pose?.mouth ?? (act && { wave: null, hype: 'shout', remind: 'o', upset: 'frown', motivate: 'grin' }[A]),

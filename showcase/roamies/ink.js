@@ -2315,6 +2315,15 @@
     spot: (w, h) => place(w, h),
     // A rect from the helpers (screen points) in this overlay's coordinates, for game mode (sidebar.js).
     toLocal: (r) => locRect(r),
+    // For place.js: the cards up now (never stand on them), and the part of the real screen that's marked (stand
+    // beside it): one rectangle round every marked thing, or null.
+    rects: () => marks.filter((m) => m.alive && m.card && !m.leaving).map((m) => (typeof m.box === 'function' ? m.box() : m.box)).filter((q) => Array.isArray(q) && q.length === 4),
+    focus: () => {
+      const q = marks.filter((m) => m.alive && m.marked && !m.leaving).map((m) => [m.marked[0] + m.dx, m.marked[1] + m.dy, m.marked[2], m.marked[3]]);
+      if (!q.length) return null;
+      const x0 = Math.min(...q.map((r) => r[0])), y0 = Math.min(...q.map((r) => r[1])), x1 = Math.max(...q.map((r) => r[0] + r[2])), y1 = Math.max(...q.map((r) => r[1] + r[3]));
+      return [x0, y0, x1 - x0, y1 - y0].map((v) => Math.round(v / 20) * 20);
+    },
     sidebarChanged: () => touch(0.5),
   };
 })();

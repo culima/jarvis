@@ -126,7 +126,8 @@
       const count = Math.round(clamp(rad * rad * 0.62, mini ? 46 : 96, FRAGS.length)), letters = rad >= 18, words = rad >= 11;
       const BANDS = rad >= 40 ? 15 : rad >= 20 ? 11 : 7;
       // In thought, a bright front sweeps over the globe from pole to pole.
-      const front = thinking ? ((t * 1.3) % 1) * 2.4 - 1.2 : 9;
+      // And once, quickly, when it reads the screen to work out where to be.
+      const front = thinking ? ((t * 1.3) % 1) * 2.4 - 1.2 : st.scan >= 0 && st.scan < 0.5 ? (st.scan / 0.5) * 2.4 - 1.2 : 9;
       for (let i = 0; i < count; i++) {
         const f = FRAGS[i];
         // Its place: spread evenly over the globe (a golden spiral), on its shell, in its band.

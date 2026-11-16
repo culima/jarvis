@@ -209,7 +209,7 @@
     // Free (the default; Settings, Appearance, Follow my cursor turns it off): it has its own place on the screen
     // instead of popping up beside the cursor and following it, and wanders when it has nothing to do.
     const free = () => R.followCursor !== true;
-    const roam = { at: 0, hold: 0, rev: -1, target: null };
+    const roam = { at: 0, hold: 0, rev: -1, target: '' };
     const hop = { on: false };
     const hopDrive = (dt) => {
       hop.t += dt;
@@ -1244,11 +1244,13 @@
           const P = R.place;
           if (P && free() && !held && !pen.held && !dock && !station.moving && !hop.on && !b && !tool && !dying.length && now >= actUntil && !R.game) {
             if (!roam.at) roam.at = now + 4;
-            const changed = P.rev !== roam.rev || P.target !== roam.target, idle = now > roam.at;
+            const focus = R.ink?.focus?.() ?? null, fkey = focus ? focus.join() : '';
+            const changed = P.rev !== roam.rev || fkey !== roam.target, idle = now > roam.at;
             if ((changed || idle) && now > roam.hold) {
-              roam.rev = P.rev; roam.target = P.target; roam.at = now + 16 + Math.random() * 28; roam.hold = now + 1.5;
+              if (changed) R.jarvisScanAt = performance.now();
+              roam.rev = P.rev; roam.target = fkey; roam.at = now + 16 + Math.random() * 28; roam.hold = now + 1.5;
               const here = [m.x, m.y], rad = k.R * 1.3;
-              const r = P.best({ screen: bounds(), windows: P.windows, rad, cursor: presence.cursor, here, avoid: R.ink?.rects?.() ?? [], target: P.target ?? null });
+              const r = P.best({ screen: bounds(), windows: P.windows, rad, cursor: presence.cursor, here, avoid: R.ink?.rects?.() ?? [], target: focus });
               let go = r.here == null || r.score < r.here - 0.12 ? r : null;
               if (!go && idle && !changed && Math.random() < 0.55) go = [r, ...r.others].filter((c) => Math.hypot(c.x - here[0], c.y - here[1]) > rad * 2 && c.score < r.here + 0.1)[0] ?? null;
               if (go && go.score < 50 && Math.hypot(go.x - m.x, go.y - m.y) > k.R * 0.8 && !R.inkHit?.(go.x, go.y)) { setStation(go.x, go.y); m.goTo(go.x, go.y); station.moving = true; }

@@ -325,7 +325,7 @@ const keyWords = (accel) => accel.replace(/Key|Digit/g, '').split('+')
 const TRAY = MAC ? 'menu bar' : 'system tray';
 // Where settings live now: the panel that opens from the icon (the menu is just the basics). Linux trays don't
 // report clicks, so there it's the icon's menu, or starting Roamies again (which also works with no tray at all).
-const PANEL = LINUX ? 'the panel (Open Panel… in my tray icon\'s menu, or open Roamies again from your apps)' : MAC ? `the panel (click my ${TRAY} icon)` : 'the panel (click my icon by the clock, behind the ^ arrow if it isn\'t showing, or open Roamies again from the Start menu)';
+const PANEL = LINUX ? 'the panel (Open Panel… in my tray icon\'s menu, or open Jarvis again from your apps)' : MAC ? `the panel (click my ${TRAY} icon)` : 'the panel (click my icon by the clock, behind the ^ arrow if it isn\'t showing, or open Jarvis again from the Start menu)';
 // What the shortcuts are on Wayland: whatever keys they bound to these commands in their desktop's settings.
 // ROAMIES_LAUNCH: how this copy is started (the app says: plain roamies for a package, the AppImage's path for one).
 const LAUNCH = process.env.ROAMIES_LAUNCH || 'roamies';
@@ -1539,7 +1539,7 @@ function onLoginStatus(m) {
     config.openAtLogin = true; saveConfig();
     if (!m.on) return send({ type: 'login_item', on: true });
   } else if (login.supported) { config.openAtLogin = login.on; saveConfig(); }
-  if (login.asked && m.approval) say('macOS wants your OK first: System Settings → General → Login Items, then switch Roamies on.', 'concerned');
+  if (login.asked && m.approval) say('macOS wants your OK first: System Settings → General → Login Items, then switch Jarvis on.', 'concerned');
   login.asked = false;
   menu(); if (onboarding) obState();
 }
@@ -1575,14 +1575,14 @@ function onUpdateStatus(m) {
     // Say it once per version; the menu item stays until it's installed.
     if (manual || update.told !== m.version) {
       update.told = m.version;
-      if (update.page) say(`Roamies ${m.version} is out. Pick Get Roamies ${m.version} in my ${TRAY} icon's menu for the download page.`, 'happy');
-      else say(`Roamies ${m.version} is ready. ${LINUX ? `Open my ${TRAY} icon's menu` : `Click my ${TRAY} icon`} and pick Install and Restart. I'll be right back.`, 'happy');
+      if (update.page) say(`Jarvis ${m.version} is out. Pick Get Jarvis ${m.version} in my ${TRAY} icon's menu for the download page.`, 'happy');
+      else say(`Jarvis ${m.version} is ready. ${LINUX ? `Open my ${TRAY} icon's menu` : `Click my ${TRAY} icon`} and pick Install and Restart. I'll be right back.`, 'happy');
     }
   } else if (m.state === 'page') {
     update.installing = false; menu();
-    say(`I opened the download page for Roamies ${m.version}. Install it the way you installed me.`, 'happy');
+    say(`I opened the download page for Jarvis ${m.version}. Install it the way you installed me.`, 'happy');
   } else if (m.state === 'downloading') {
-    say(`Downloading Roamies ${m.version}…`, 'determined');
+    say(`Downloading Jarvis ${m.version}…`, 'determined');
   } else if (m.state === 'installed') {
     update.done = m.version; update.installing = false; panel();
     say(`Installed ${m.version}. Restarting!`, 'happy');
@@ -1817,9 +1817,9 @@ function menu() {
     ...(SNAP_OK ? [{ id: 'snap', label: 'Ask About an Area…', accel: keys().snap }] : []),
     { id: 'stop', label: 'Stop', enabled: busy },
     { id: 'diagnostics', label: 'Save Diagnostics…', enabled: !diagnosing },
-    ...(update.available ? [{ sep: true }, { id: 'install_update', label: update.page ? `Get Roamies ${update.available}…` : update.installing ? `Installing ${update.available}…` : `Install Update ${update.available} and Restart`, enabled: !update.installing }] : []),
+    ...(update.available ? [{ sep: true }, { id: 'install_update', label: update.page ? `Get Jarvis ${update.available}…` : update.installing ? `Installing ${update.available}…` : `Install Update ${update.available} and Restart`, enabled: !update.installing }] : []),
     { sep: true },
-    { id: 'quit', label: 'Quit Roamies' },
+    { id: 'quit', label: 'Quit Jarvis' },
   ];
   send({ type: 'menu', items });
   panel();
@@ -1967,7 +1967,7 @@ function onVoice(m) {
       openUrl('ms-settings:privacy-microphone');
     } else if (m.code === 'permission') {
       const what = m.what === 'speech' ? 'speech recognition' : 'the microphone';
-      say(`I need access to ${what} to hear you. Turn on Roamies in the Privacy settings I just opened.`, 'concerned');
+      say(`I need access to ${what} to hear you. Turn on Jarvis in the Privacy settings I just opened.`, 'concerned');
       openUrl(`x-apple.systempreferences:com.apple.preference.security?${PRIVACY[m.what] ?? 'Privacy'}`);
     } else if (m.code === 'no_input') {
       if (m.reason === 'blocked' && process.platform === 'win32') openUrl('ms-settings:privacy-microphone');
@@ -2002,7 +2002,7 @@ let shellId = 0;
 function shellCall(msg, timeout = 90_000) {
   const id = ++shellId;
   return new Promise((resolve) => {
-    const t = setTimeout(() => { shellCalls.delete(id); resolve({ ok: false, error: 'Roamies didn\'t answer in time.' }); }, timeout);
+    const t = setTimeout(() => { shellCalls.delete(id); resolve({ ok: false, error: 'Jarvis didn\'t answer in time.' }); }, timeout);
     shellCalls.set(id, (m) => { clearTimeout(t); resolve(m); });
     send({ ...msg, id });
   });
