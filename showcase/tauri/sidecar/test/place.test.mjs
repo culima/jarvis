@@ -52,6 +52,24 @@ assert.ok(gap > rad * 1.2 && gap < rad * 4, `beside what it's talking about (gap
 assert.ok(P.score(20, 20, { screen, rad }).score > 50);
 assert.ok(Number.isFinite(P.best({ screen: { l: 0, t: 0, r: 200, b: 200 }, rad }).x));
 
+// With the picture of the screen: in a window that fills it, it stands where the picture is calm (an empty stretch),
+// wherever that is, and bare desktop stays free however busy the wallpaper.
+const cols = 32, rows = 18, cells = [];
+for (let r0 = 0; r0 < rows; r0++) for (let c = 0; c < cols; c++) cells.push(c >= 4 && c < 13 && r0 >= 2 && r0 < 9 ? 0 : 7);
+const grid = { cols, rows, cells, rect: [0, 0, 1920, 1040] };
+r = P.best({ screen, windows: full, rad, grid });
+assert.ok(r.x > 4 * 60 && r.x < 13 * 60 && r.y > 2 * 57 && r.y < 9 * 58, `in the calm part of a full window (${Math.round(r.x)}, ${Math.round(r.y)})`);
+assert.equal(P.worth(1500, 900, [], grid), 0, 'a busy wallpaper is still free to cover');
+P.feed([{ bounds: [0, 0, 800, 600], front: true }], (b) => b, { cols: 2, rows: 1, cells: '09', bounds: [0, 0, 1920, 1040] });
+assert.deepEqual(P.grid.cells, [0, 9]);
+const rev0 = P.rev;
+P.feed([{ bounds: [0, 0, 800, 600], front: true }], (b) => b, { cols: 2, rows: 1, cells: '19', bounds: [0, 0, 1920, 1040] });
+assert.equal(P.rev, rev0, 'a flicker in the picture is no change');
+P.feed([{ bounds: [0, 0, 800, 600], front: true }], (b) => b, { cols: 2, rows: 1, cells: '91', bounds: [0, 0, 1920, 1040] });
+assert.ok(P.rev > rev0, 'a different picture is');
+P.feed([], (b) => b, { cols: 2, rows: 1, cells: '9', bounds: [0, 0, 1, 1] });
+assert.equal(P.grid, null, 'a broken grid is dropped');
+
 // The feed: only real rectangles, mapped into the overlay, and a change is noticed once.
 P.feed([{ bounds: [0, 0, 800, 600], front: true }, { bounds: [1, 2, 10, 10] }, { bounds: 'x' }], (b) => b.map((v) => v + 5));
 assert.deepEqual(P.windows, [{ rect: [5, 5, 805, 605], front: true }]);
@@ -68,5 +86,9 @@ const agent = src('../../../roamies/agent.js');
 assert.match(agent, /m\.drive = hopDrive/);
 assert.match(agent, /!station\.byCursor && !free\(\)\) \{/, 'free: it does not flee the cursor');
 assert.match(src('../../../roamies/host.js'), /m\.kind === 'layout'/);
+// Spoken replies: no speech bubbles, and its states follow the sound.
+assert.match(agent, /const unseen = \(bb\) => R\.spoken === true && !!bb && !bb\.input && !bb\.show;/);
+assert.match(agent, /sounding \? 'talk' : b\.sounded \? null : 'think'/);
+assert.match(src('../../../roamies/host.js'), /m\.kind === 'spoken'/);
 assert.match(src('../../../desktop.html'), /roamies\/place\.js/);
 console.log('place tests: passed');

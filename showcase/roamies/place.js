@@ -20,7 +20,7 @@
   const DISC = [[0, 0], ...[0, 1, 2, 3, 4, 5].map((i) => [Math.cos(i * 1.047) * 0.5, Math.sin(i * 1.047) * 0.5]), ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => [Math.cos(i * 0.785) * 0.92, Math.sin(i * 0.785) * 0.92])];
 
   // How much it matters to hide the point (x, y): 0 on bare desktop, up to about 1 in the middle of the front window.
-  const worth = (x, y, windows) => {
+  const worth = (x, y, windows, grid) => {
     for (let i = 0; i < windows.length; i++) {
       const w = windows[i], r = w.rect;
       if (!inside(r, x, y)) continue;
@@ -31,32 +31,43 @@
       const mid = 1 - Math.min(1, Math.hypot((u - 0.45) / 0.62, (v - 0.42) / 0.62));
       const edge = Math.min(u, 1 - u, v, 1 - v);
       const quiet = (u > 0.86 ? 0.25 : 0) + (v > 0.84 ? 0.2 : 0) + (edge < 0.04 ? 0.1 : 0);
-      return rank * clamp(0.45 + 0.55 * mid - quiet, 0.12, 1);
+      const prior = clamp(0.45 + 0.55 * mid - quiet, 0.12, 1);
+      // With the picture of the screen (how busy each part is): what's really there decides, the habit only tips it.
+      // An empty margin or a blank stretch of a page is nearly free; dense text or a picture is what not to hide.
+      const g = grid ? busyAt(grid, x, y) : null;
+      return rank * (g == null ? prior : 0.1 + 0.68 * g + 0.22 * prior);
     }
     return 0;
   };
 
-  const coverOf = (x, y, rad, windows) => {
+  // How busy the picture is at (x, y), 0 to 1, or null off the grid.
+  const busyAt = (grid, x, y) => {
+    const [gx, gy, gw, gh] = grid.rect, c = Math.floor(((x - gx) / gw) * grid.cols), r = Math.floor(((y - gy) / gh) * grid.rows);
+    if (c < 0 || r < 0 || c >= grid.cols || r >= grid.rows) return null;
+    return grid.cells[r * grid.cols + c] / 9;
+  };
+
+  const coverOf = (x, y, rad, windows, grid) => {
     let sum = 0;
-    for (const [dx, dy] of DISC) sum += worth(x + dx * rad, y + dy * rad, windows);
+    for (const [dx, dy] of DISC) sum += worth(x + dx * rad, y + dy * rad, windows, grid);
     return sum / DISC.length;
   };
 
   // The score of standing at (x, y). ctx: { screen: {l,t,r,b}, windows: [{rect:[x,y,w,h], front}], rad, cursor: [x,y]?,
   // here: [x,y]?, avoid: [[x,y,w,h]], target: [x,y,w,h]?, bubble: [w,h]? }. Returns { score, parts } (parts for tests).
   const score = (x, y, ctx) => {
-    const { screen: S, windows = [], rad } = ctx, parts = {};
+    const { screen: S, windows = [], rad, grid = null } = ctx, parts = {};
     // The whole globe on screen, with a little air.
     const pad = rad * 1.12;
     if (x < S.l + pad || x > S.r - pad || y < S.t + pad || y > S.b - pad) return { score: 99, parts: { off: 1 } };
-    parts.cover = coverOf(x, y, rad, windows) * 1.5;
+    parts.cover = coverOf(x, y, rad, windows, grid) * 1.5;
     // Its bubble opens beside it, on the side with more room; it shouldn't hide the front window's middle either.
     const [bw, bh] = ctx.bubble ?? [rad * 3.2, rad * 1.5];
     const side = (dir) => {
       const bx = dir > 0 ? x + rad * 1.15 : x - rad * 1.15 - bw, by = y - bh * 0.6;
       const fits = bx >= S.l && bx + bw <= S.r && by >= S.t && by + bh <= S.b;
       let hid = 0;
-      for (const [u, v] of [[0.2, 0.3], [0.5, 0.3], [0.8, 0.3], [0.2, 0.7], [0.5, 0.7], [0.8, 0.7]]) hid += worth(bx + bw * u, by + bh * v, windows);
+      for (const [u, v] of [[0.2, 0.3], [0.5, 0.3], [0.8, 0.3], [0.2, 0.7], [0.5, 0.7], [0.8, 0.7]]) hid += worth(bx + bw * u, by + bh * v, windows, grid);
       return (fits ? 0 : 0.55) + (hid / 6) * 0.45;
     };
     parts.bubble = Math.min(side(1), side(-1));
@@ -121,16 +132,26 @@
   };
 
   R.place = {
-    windows: [], rev: 0, at: 0,
+    windows: [], grid: null, rev: 0, at: 0,
     // The layout from the hands helper: [{ bounds: [x, y, w, h] in screen points, front }], front to back.
-    feed(list, toLocal = R.ink?.toLocal) {
+    feed(list, toLocal = R.ink?.toLocal, grid = null) {
       const next = [];
       for (const w of list ?? []) {
         const r = Array.isArray(w.bounds) && w.bounds.length === 4 && w.bounds.every(Number.isFinite) ? (toLocal ? toLocal(w.bounds) : w.bounds) : null;
         if (r && r[2] > 40 && r[3] > 40) next.push({ rect: r.map(Math.round), front: !!w.front });
       }
-      const sig = JSON.stringify(next);
-      if (sig !== this.sig) { this.sig = sig; this.windows = next; this.rev++; }
+      // The picture's busyness grid ({ cols, rows, cells: a digit a cell, bounds }): kept when it's whole.
+      let g = null;
+      if (grid && typeof grid.cells === 'string' && grid.cols > 0 && grid.rows > 0 && grid.cells.length === grid.cols * grid.rows && Array.isArray(grid.bounds) && grid.bounds[2] > 0) {
+        g = { cols: grid.cols, rows: grid.rows, cells: [...grid.cells].map(Number), rect: toLocal ? toLocal(grid.bounds) : grid.bounds };
+      }
+      const sig = JSON.stringify(next), gsig = g ? grid.cells : '';
+      // A new picture counts as a change only when it's a real one (a page scrolled, a tab switched), not a blinking caret.
+      let moved = 0;
+      if (g && this.grid && this.gsig.length === gsig.length) for (let i = 0; i < gsig.length; i++) moved += Math.abs(gsig.charCodeAt(i) - this.gsig.charCodeAt(i)) >= 2 ? 1 : 0;
+      const pictured = !!g !== !!this.grid || moved > gsig.length * 0.04;
+      this.grid = g; this.gsig = gsig;
+      if (sig !== this.sig || pictured) { this.sig = sig; this.windows = next; this.rev++; this.changedAt = performance.now(); }
       this.at = performance.now();
     },
     score, best, candidates, worth,

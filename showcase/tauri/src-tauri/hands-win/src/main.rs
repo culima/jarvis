@@ -105,6 +105,40 @@ fn windows_main(cmd: &str, args: &[String]) -> ! {
             }).collect();
             out(json!({ "ok": true, "windows": list }))
         }
+        // Keeps running and prints the screen's layout, one JSON line each time it changes: the app windows front to
+        // back (their rectangles and which is in front) about seven times a second, and how busy each part of the
+        // main screen's picture is (a small grid of digits; the picture itself is dropped) about once a second.
+        // The overlay uses it to work out where to stand. Ends when nobody reads it any more.
+        "watch" => {
+            let (cols, rows) = (32usize, 18usize);
+            let (mut last, mut cells, mut screen, mut tick) = (String::new(), String::new(), [0i64; 4], 0u32);
+            loop {
+                let front = win::front_pid();
+                let mut marked = false;
+                let list: Vec<Value> = windows().iter().take(14).map(|w| {
+                    let f = Some(w.pid) == front && !marked;
+                    marked |= f;
+                    json!({ "app": w.app, "bounds": w.r.ints(), "frontApp": f })
+                }).collect();
+                if tick % 6 == 0 {
+                    let m = win::primary();
+                    if let Some(s) = capture::grab_screen(m.px) {
+                        cells = logic::busyness(&s.rgba, s.w, s.h, cols, rows);
+                        screen = m.pt().ints();
+                    }
+                }
+                tick = tick.wrapping_add(1);
+                let line = json!({ "ok": true, "windows": list, "grid": { "cols": cols, "rows": rows, "cells": cells, "bounds": screen } }).to_string();
+                if line != last {
+                    let mut o = std::io::stdout().lock();
+                    if writeln!(o, "{line}").is_err() || o.flush().is_err() {
+                        std::process::exit(0);
+                    }
+                    last = line;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(150));
+            }
+        }
         // Where the user is right now: the app in front (never Roamies), its window's title, and a browser's address.
         "front" => {
             let mut o = json!({ "ok": true });

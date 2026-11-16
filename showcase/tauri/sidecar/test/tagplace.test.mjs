@@ -121,7 +121,7 @@ for (const side of ['right', 'left']) {
   assert.match(tagBox, /b\?\.tagSpot\);\s*if \(b\) b\.tagSpot = g\.spot;/, 'and remembers its spot on the bubble');
   const over = src.slice(src.indexOf('over: (ctx, env) => {'), src.indexOf('return self;'));
   const at = (s) => { const i = over.indexOf(s); assert.ok(i > 0, `over draws ${s}`); return i; };
-  assert.ok(at('drawTag(ctx, tool)') < at('if (b) { drawBubble(ctx, b)'), 'the open bubble is drawn over the tag');
-  assert.ok(at('drawTag(ctx, tool)') < at('for (const bb of dying) { drawBubble(ctx, bb)'), 'and so is a bubble fading out');
+  assert.ok(at('drawTag(ctx, tool)') < at('if (b && !unseen(b)) { drawBubble(ctx, b)'), 'the open bubble is drawn over the tag');
+  assert.ok(at('drawTag(ctx, tool)') < at('for (const bb of dying) if (!unseen(bb)) { drawBubble(ctx, bb)'), 'and so is a bubble fading out');
 }
 console.log('tag place tests: passed');

@@ -742,6 +742,44 @@ pub fn cursor_travelled(dx: i32, dy: i32) -> bool {
     dx.abs() + dy.abs() > TRAVEL_PX
 }
 
+/// How much is going on in each cell of a cols × rows grid laid over a picture (RGBA, top row first): one digit a
+/// cell, row by row, from 0 (flat: an empty page margin, a blank editor, bare colour) to 9 (dense text, a busy
+/// picture). The overlay uses it to stand where the least is hidden. Nothing of the picture itself is kept.
+pub fn busyness(rgba: &[u8], w: usize, h: usize, cols: usize, rows: usize) -> String {
+    const STEP: usize = 3;
+    if cols == 0 || rows == 0 || w < cols * STEP * 2 || h < rows * STEP * 2 || rgba.len() < w * h * 4 {
+        return "0".repeat(cols * rows);
+    }
+    let lum = |x: usize, y: usize| {
+        let i = (y * w + x) * 4;
+        (i32::from(rgba[i]) * 3 + i32::from(rgba[i + 1]) * 6 + i32::from(rgba[i + 2])) / 10
+    };
+    let mut out = String::with_capacity(cols * rows);
+    for r in 0..rows {
+        for c in 0..cols {
+            let (x0, x1, y0, y1) = (c * w / cols, (c + 1) * w / cols, r * h / rows, (r + 1) * h / rows);
+            let (mut sum, mut n) = (0i64, 0i64);
+            let mut y = y0;
+            while y + STEP < y1.min(h) {
+                let mut x = x0;
+                while x + STEP < x1.min(w) {
+                    let a = lum(x, y);
+                    let d = (a - lum(x + STEP, y)).abs() + (a - lum(x, y + STEP)).abs();
+                    sum += i64::from(d.min(80));
+                    n += 1;
+                    x += STEP;
+                }
+                y += STEP;
+            }
+            let mean = if n > 0 { sum as f64 / n as f64 } else { 0.0 };
+            // Flat is 0; a line of text here and there about 3; a page of text 6 and up.
+            let digit = ((mean / 2.2).sqrt() * 3.0).round().clamp(0.0, 9.0) as u8;
+            out.push((b'0' + digit) as char);
+        }
+    }
+    out
+}
+
 pub fn self_test() -> Vec<(&'static str, bool)> {
     let win = |id: i64, title: &str, w: f64, h: f64| Win { id, pid: 1, app: "App".into(), exe: "app".into(), title: title.into(), r: Rect::new(0.0, 0.0, w, h) };
     let mw = |v: Vec<Win>| main_window(&v).map(|w| w.id);
@@ -825,6 +863,13 @@ pub fn self_test() -> Vec<(&'static str, bool)> {
         ("an OCR phrase spans its words", ocr_matches(&line, "open now") == vec![Rect::new(150.0, 0.0, 80.0, 12.0)]),
         ("one character is cut from its word, case and all", ocr_matches(&line, "O") == vec![Rect::new(150.0, 0.0, 10.0, 12.0)]),
         ("the item below the anchor wins", nearest_after(&Rect::new(0.0, 100.0, 50.0, 10.0), &[Rect::new(0.0, 50.0, 20.0, 10.0), Rect::new(0.0, 130.0, 20.0, 10.0), Rect::new(0.0, 300.0, 20.0, 10.0)]) == Some(1)),
+        ("a flat picture is calm everywhere", busyness(&canvas(120, 60, &[]), 120, 60, 4, 2) == "00000000"),
+        ("stripes of text are busy where they are, calm elsewhere", {
+            let lines: Vec<Rect> = (0..6).map(|i| Rect::new(2.0 + (i % 2) as f64, 2.0 + i as f64 * 5.0, 26.0, 2.0)).collect();
+            let b = busyness(&canvas(120, 60, &lines), 120, 60, 4, 2);
+            b.len() == 8 && b.as_bytes()[0] >= b'5' && b[1..].bytes().all(|d| d <= b'1')
+        }),
+        ("a picture too small for the grid is all calm, not a crash", busyness(&[0u8; 16], 2, 2, 4, 2) == "00000000"),
         ("long scrolled-off text keeps its start and end", offscreen_text((0..50).map(|i| (i as f64, format!("line number {i}"))).collect(), 100).last().map(String::as_str) == Some("line number 49")),
     ]
 }

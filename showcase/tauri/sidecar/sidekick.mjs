@@ -15,7 +15,7 @@ import {
   getModelsForProvider, loginChatGPT, ollamaServedContext, parseLocalModelId, pointScale, registerRuntimeModels, resolveClaudeCodeBinary, revokeChatGPTSignIn, signInWithClaudeCode,
   signOutOfClaudeCode, storageKeyProvider,
 } from '@kenkaiiii/gg-core';
-import { execFile, execFileSync, fork } from 'node:child_process';
+import { execFile, execFileSync, fork, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -1699,6 +1699,11 @@ async function gameModeTick() {
   } finally { gameTicking = false; }
 }
 if (HANDS_OK) setInterval(() => gameModeTick().catch(() => {}), WIN ? 3000 : 30_000);
+// Replies are spoken: the overlay then shows no speech bubbles, and moves with the voice it plays instead of the
+// text arriving. Told at the start and whenever it changes.
+let spokenSent = null;
+function spokenTick() { const on = VOICE_ON(); if (on !== spokenSent) { spokenSent = on; ui({ kind: 'spoken', on }); } }
+setInterval(spokenTick, 3000);
 // Where the windows are, for the overlay to work out where to be (roamies/place.js): only their rectangles and which
 // is in front, never titles or contents, and never Jarvis' own windows. Nothing kept or logged. Windows only for now.
 let layoutTicking = false, layoutSent = '';
@@ -1712,7 +1717,35 @@ async function layoutTick() {
     if (sig !== layoutSent) { layoutSent = sig; ui({ kind: 'layout', windows }); }
   } finally { layoutTicking = false; }
 }
-if (HANDS_OK && WIN) setInterval(() => layoutTick().catch(() => {}), 2500);
+// The helper's watcher tells of every change as it happens (windows about seven times a second, and how busy each
+// part of the screen's picture is about once a second: a small grid of digits, never the picture). While it runs,
+// the slow poll above rests; if it can't start or stops, the poll carries on and the watcher is tried again.
+let watching = false, watchFails = 0;
+function watchLayout() {
+  const bin = process.env.ROAMIES_HANDS || '';
+  if (!bin || bin.endsWith('.mjs') || watchFails > 5) return;
+  let child, buf = '';
+  try { child = spawn(bin, ['watch'], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }); } catch { watchFails++; return; }
+  const started = Date.now();
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (d) => {
+    buf += d;
+    let line = '';
+    for (let i; (i = buf.indexOf('\n')) >= 0;) { line = buf.slice(0, i) || line; buf = buf.slice(i + 1); }
+    if (!line) return;
+    let r = null;
+    try { r = JSON.parse(line); } catch { return; }
+    if (!Array.isArray(r?.windows)) return;
+    watching = true;
+    const windows = layoutOf(r.windows), g = r.grid, grid = g && typeof g.cells === 'string' && g.cells.length === g.cols * g.rows ? { cols: g.cols, rows: g.rows, cells: g.cells, bounds: g.bounds } : null;
+    const sig = JSON.stringify(windows) + (grid?.cells ?? '');
+    if (sig !== layoutSent) { layoutSent = sig; ui({ kind: 'layout', windows, grid }); }
+  });
+  const over = () => { if (!child) return; child = null; watching = false; watchFails += Date.now() - started < 5000 ? 1 : 0; setTimeout(watchLayout, 4000); };
+  child.on('error', over); child.on('exit', over);
+  process.on('exit', () => { try { child?.kill(); } catch { /* gone */ } });
+}
+if (HANDS_OK && WIN) { watchLayout(); setInterval(() => { if (!watching) layoutTick().catch(() => {}); }, 2500); }
 
 // ---------- the list on screen ----------
 // Today / Later, drawn by the overlay next to Sidekick. seconds: how long it stays up (0 = just update it if it's open).
@@ -2396,6 +2429,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     ui({ kind: 'look', look: config.look ?? 'jarvis' });
     ui({ kind: 'accent', colour: colourOf(config) });
     ui({ kind: 'follow', on: config.followCursor === true });
+    spokenTick();
     if (config.onboarded) ui({ kind: 'greet' });
     agents.sync();
   } else if (m.type?.startsWith('ob_') || m.type?.startsWith('chat_') || m.type === 'set_keys' || m.type === 'set_actions' || m.type === 'set_login' || m.type === 'keybind_error') onGuide(m).catch((e) => console.error('guide', e));

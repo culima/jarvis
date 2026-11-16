@@ -394,6 +394,11 @@
       // Game mode (sidebar.js): at the top of the panel at the screen's edge, never beside a cursor that isn't there.
       const dock = R.sidebar?.dock?.();
       if (dock) { setStation(dock[0], dock[1]); station.atDock = true; return dock; }
+      if (free() && R.place && !R.game) {
+        const here = station.x != null ? [station.x, station.y] : null;
+        const q = R.place.best({ screen: bounds(), windows: R.place.windows, grid: R.place.grid, rad: k.R * 1.3, cursor: presence.cursor, here, avoid: R.ink?.rects?.() ?? [], target: R.ink?.focus?.() ?? null });
+        if (q.score < 50) { setStation(q.x, q.y); return [q.x, q.y]; }
+      }
       const near = free() ? null : besideCursor();
       if (near) { setStation(near[0], near[1], presence.ptr.slice()); station.quietUntil = now + 4; return near; }
       const [cx, cy] = presence.cursor ?? [null, null];
@@ -845,7 +850,10 @@
       ctx.restore();
     };
 
-    const hitBubble = (bb, x, y) => bb && !bb.closing && x >= bb.x.x && x <= bb.x.x + bb.w.x && y >= bb.y.x && y <= bb.y.x + bb.h.x;
+    // Replies that are spoken aren't shown: a plain speech or thought bubble stays unseen (it still paces the reply);
+    // anything to answer or type into (a question's choices, a field, the listening pill) shows as ever.
+    const unseen = (bb) => R.spoken === true && !!bb && !bb.input && !bb.show;
+    const hitBubble = (bb, x, y) => bb && !bb.closing && !unseen(bb) && x >= bb.x.x && x <= bb.x.x + bb.w.x && y >= bb.y.x && y <= bb.y.x + bb.h.x;
 
     // Back beside the cursor wherever it is now (they may have moved on meanwhile), else where it was when taken.
     const penHome = () => R.sidebar?.dock?.() ?? (presence.ptr && besideCursor(fol.side < 0 ? 'left' : 'right', presence.ptr)) ?? pen.home ?? [m.x, m.y];
@@ -1144,18 +1152,25 @@
           };
         }
         const talking = b.shown < b.text.length || !!R.voiceOut?.playing();
+        // Spoken replies: it keeps thinking until its voice is actually heard, speaks for as long as the sound
+        // lasts, and is done when the sound is, whatever the text is doing.
+        const sounding = !!R.voiceOut?.playing();
+        if (sounding) b.sounded = true;
+        // No sound after a good while (the voice failed, or is off for this reply): show the words after all.
+        else if (!b.sounded && b.kind === 'speech' && (b.quiet = (b.quiet ?? 0) + dt) > 7) b.show = true;
+        const voiceMode = R.spoken === true ? (sounding ? 'talk' : b.sounded ? null : 'think') : talking ? 'talk' : null;
         gestT += dt * (talking ? 1 : 0.3);
         const g = Math.sin(gestT * 3.1), g2 = Math.sin(gestT * 1.7 + 1);
         const brow = b.mood === 'annoyed' ? 'angry' : b.mood === 'concerned' ? 'raised' : b.mood === 'determined' ? 'determined' : null;
         if (b.point) {
           const bob = Math.sin(t * 5) * 0.06;
-          return { arms: 1, tr: [b.point[0], b.point[1] + bob], tl: [-0.9, 0.45], mouth: mouthT > 0 ? mouthMode : 'grin', brow: 'raised', mode: talking ? 'talk' : null };
+          return { arms: 1, tr: [b.point[0], b.point[1] + bob], tl: [-0.9, 0.45], mouth: mouthT > 0 ? mouthMode : 'grin', brow: 'raised', mode: voiceMode };
         }
         return {
           arms: talking ? 1 : 0.4,
           tr: [0.95 + g * 0.08, 0.05 - Math.max(0, g) * 0.35], tl: [-0.98 - g2 * 0.06, 0.25 - Math.max(0, g2) * 0.18],
           // No hop while it talks: the body (and the bubble and cards placed from it) stays level to be read.
-          mouth: mouthT > 0 ? mouthMode : b.mood === 'annoyed' ? 'frown' : null, brow, mode: talking ? 'talk' : null,
+          mouth: mouthT > 0 ? mouthMode : b.mood === 'annoyed' ? 'frown' : null, brow, mode: voiceMode,
         };
       }
     }
@@ -1242,26 +1257,31 @@
           // cards and drawings, what it's talking about) whenever the screen's layout changes and now and then when
           // idle, and goes there if that's clearly better. Idle, it sometimes swaps to another spot that's as good.
           const P = R.place;
-          if (P && free() && !held && !pen.held && !dock && !station.moving && !hop.on && !b && !tool && !dying.length && now >= actUntil && !R.game) {
+          // It does this whatever it's doing (listening, thinking, speaking), unless a bubble that must be read or
+          // answered is up (a question, a field, or any bubble when replies aren't spoken).
+          const reading = [b, ...dying].some((q) => q && !unseen(q));
+          if (P && free() && !held && !pen.held && !dock && !station.moving && !hop.on && !reading && !R.game) {
             if (!roam.at) roam.at = now + 4;
             const focus = R.ink?.focus?.() ?? null, fkey = focus ? focus.join() : '';
-            const changed = P.rev !== roam.rev || fkey !== roam.target, idle = now > roam.at;
+            // A change is acted on once the screen has been still for a moment (a window being dragged isn't chased).
+            const settled = performance.now() - (P.changedAt ?? 0) > 280;
+            const changed = (P.rev !== roam.rev && settled) || fkey !== roam.target, idle = now > roam.at && !b && !tool;
             if ((changed || idle) && now > roam.hold) {
               if (changed) R.jarvisScanAt = performance.now();
-              roam.rev = P.rev; roam.target = fkey; roam.at = now + 16 + Math.random() * 28; roam.hold = now + 1.5;
+              roam.rev = P.rev; roam.target = fkey; roam.at = now + 16 + Math.random() * 28; roam.hold = now + 0.9;
               const here = [m.x, m.y], rad = k.R * 1.3;
-              const r = P.best({ screen: bounds(), windows: P.windows, rad, cursor: presence.cursor, here, avoid: R.ink?.rects?.() ?? [], target: focus });
+              const r = P.best({ screen: bounds(), windows: P.windows, grid: P.grid, rad, cursor: presence.cursor, here, avoid: R.ink?.rects?.() ?? [], target: focus });
               let go = r.here == null || r.score < r.here - 0.12 ? r : null;
               if (!go && idle && !changed && Math.random() < 0.55) go = [r, ...r.others].filter((c) => Math.hypot(c.x - here[0], c.y - here[1]) > rad * 2 && c.score < r.here + 0.1)[0] ?? null;
               if (go && go.score < 50 && Math.hypot(go.x - m.x, go.y - m.y) > k.R * 0.8 && !R.inkHit?.(go.x, go.y)) { setStation(go.x, go.y); m.goTo(go.x, go.y); station.moving = true; }
             }
-          } else if (b || tool || pen.held || held) roam.hold = now + 2.5;
+          } else if (pen.held || held) roam.hold = now + 2;
           // It never glides: a move is a dash (there in a blink, its fragments streaking behind) or a phase (it
           // comes apart here and together there). Far moves mostly phase, near ones mostly dash.
           if (held || pen.held) { if (hop.on) { hop.on = false; R.jarvisFx = null; } }
           else if (station.moving && !hop.on && R.jarvis && !station.byCursor && Math.hypot(station.x - m.x, station.y - m.y) > k.R * 0.5) {
             const d = Math.hypot(station.x - m.x, station.y - m.y), phase = Math.random() < (d > k.R * 7 ? 0.7 : 0.25);
-            Object.assign(hop, { on: true, phase, x0: m.x, y0: m.y, x1: station.x, y1: station.y, t: 0, d, dur: phase ? 0.56 : clamp(0.16 + d / (k.R * 70), 0.18, 0.32) });
+            Object.assign(hop, { on: true, phase, x0: m.x, y0: m.y, x1: station.x, y1: station.y, t: 0, d, dur: phase ? 0.85 : clamp(0.42 + d / (k.R * 30), 0.5, 0.85) });
           }
           if (hop.on && !held && !pen.held && !(station.byCursor && presence.ptr)) m.drive = hopDrive;
           if (station.moving && Math.hypot(m.x - station.x, m.y - station.y) < k.R * 0.4) { station.moving = station.rush = false; station.stroll = null; m.mode = 'rest'; m.rest = 0.6; }
@@ -1309,7 +1329,7 @@
         if (!stage()) return null;
         let e = null;
         const add = (x0, y0, x1, y1) => { e = e ? [Math.min(e[0], x0), Math.min(e[1], y0), Math.max(e[2], x1), Math.max(e[3], y1)] : [x0, y0, x1, y1]; };
-        for (const bb of [b, ...dying]) if (bb) { add(bb.x.x - 8, bb.y.x - 8, bb.x.x + bb.w.x * 1.08 + 8, bb.y.x + bb.h.x * 1.08 + 8); add(bb.tail.x.x - 8, bb.tail.y.x - 8, bb.tail.x.x + 8, bb.tail.y.x + 8); }
+        for (const bb of [b, ...dying]) if (bb && !unseen(bb)) { add(bb.x.x - 8, bb.y.x - 8, bb.x.x + bb.w.x * 1.08 + 8, bb.y.x + bb.h.x * 1.08 + 8); add(bb.tail.x.x - 8, bb.tail.y.x - 8, bb.tail.x.x + 8, bb.tail.y.x + 8); }
         if (tool) { const g = tagBox(tool); add(g.x, g.y - 10, g.x + g.w, g.y + g.h); }
         return e;
       },
@@ -1329,8 +1349,8 @@
         // The tag goes under every bubble, so it can never cover the words or the Allow and Don't allow buttons of the
         // open one, nor sit on one that's fading out (the tag takes its usual spot back as soon as a bubble closes).
         if (tool) drawTag(ctx, tool);
-        for (const bb of dying) { drawBubble(ctx, bb); drawText(ctx, env, bb); }
-        if (b) { drawBubble(ctx, b); drawText(ctx, env, b); }
+        for (const bb of dying) if (!unseen(bb)) { drawBubble(ctx, bb); drawText(ctx, env, bb); }
+        if (b && !unseen(b)) { drawBubble(ctx, b); drawText(ctx, env, b); }
       },
     };
     return self;
