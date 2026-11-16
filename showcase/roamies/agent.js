@@ -205,11 +205,28 @@
       if (fromX != null && spotOK(fromX, fromY)) return [fromX, fromY];
       return [(S.l + S.r) / 2, (S.t + S.b) / 2];
     };
-    const setStation = (x, y, byCursor = null) => { station.x = x; station.y = y; station.byCursor = byCursor; station.stroll = null; m.anchor = { x, y, r: k.R * 0.35 }; };
+    const setStation = (x, y, byCursor = null) => { station.x = x; station.y = y; station.byCursor = byCursor; station.stroll = null; m.anchor = { x, y, r: R.followCursor === true ? k.R * 0.35 : 0 }; };
     // Free (the default; Settings, Appearance, Follow my cursor turns it off): it has its own place on the screen
     // instead of popping up beside the cursor and following it, and wanders when it has nothing to do.
     const free = () => R.followCursor !== true;
-    const roam = { at: 0 };
+    const roam = { at: 0, hold: 0, rev: -1, target: null };
+    const hop = { on: false };
+    const hopDrive = (dt) => {
+      hop.t += dt;
+      const u = clamp(hop.t / hop.dur, 0, 1);
+      if (hop.phase) {
+        // Apart (first part), across in no time, together (the rest).
+        const cut = 0.42;
+        if (u >= cut) { m.x = hop.x1; m.y = hop.y1; }
+        R.jarvisFx = { gone: u < cut ? Math.pow(u / cut, 0.8) : Math.pow(1 - (u - cut) / (1 - cut), 1.4) };
+      } else {
+        const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2, s = Math.sin(u * Math.PI) * Math.min(2.6, 0.8 + hop.d / (k.R * 4));
+        m.x = hop.x0 + (hop.x1 - hop.x0) * e; m.y = hop.y0 + (hop.y1 - hop.y0) * e;
+        R.jarvisFx = { streak: [(-(hop.x1 - hop.x0) / hop.d) * s, (-(hop.y1 - hop.y0) / hop.d) * s] };
+      }
+      m.vx = m.vy = 0;
+      if (u >= 1) { hop.on = false; R.jarvisFx = null; m.x = hop.x1; m.y = hop.y1; m.tx = m.x; m.ty = m.y; m.mode = 'rest'; m.rest = 0.8; }
+    };
     // Pop up right beside the cursor, like a buddy at your elbow: to its right and a little below the tip
     // (the arrow's body points down-right), else its left, else above or below. Bubbles then open on the
     // side away from the cursor, so whatever it's pointing at stays visible.
@@ -1205,7 +1222,7 @@
           else { fol.on = false; m.drive = null; }
           nativeStep(dt, self);
           // While drawing, stay put: the user's cursor is supposed to come over here.
-          if (!held && env.mouse && !pen.held && !station.byCursor) {
+          if (!held && env.mouse && !pen.held && !station.byCursor && !free()) {
             const cx = env.mouse.x, cy = env.mouse.y, dBody = Math.hypot(cx - m.x, cy - m.y);
             // Pointing right at it or its bubble means "I want this"; hovering around it means "you're in my way".
             const onIt = dBody < m.radius * 1.1 || (b && hitBubble(b, cx, cy));
@@ -1221,22 +1238,30 @@
               station.moving = true; station.flee = 0; k.S('hop'); k.sq.kick(4);
             }
           }
-          // Free, with nothing to do: now and then it wanders. Mostly a short drift nearby, sometimes a trip across the
-          // screen, each at its own pace; never while it talks, works, draws or is being held, and never onto the cursor.
-          if (free() && !held && !pen.held && !dock && !station.moving && !b && !tool && !dying.length && now >= actUntil && !R.game) {
-            if (!roam.at) roam.at = now + 6 + Math.random() * 10;
-            if (now > roam.at) {
-              const S = bounds(), [ux, uy] = presence.cursor ?? [null, null];
-              let x, y;
-              if (Math.random() < 0.55) {
-                const a = Math.random() * Math.PI * 2, d = k.R * (1.5 + Math.random() * 3);
-                x = clamp(m.x + Math.cos(a) * d, S.l + k.R * 1.6, S.r - k.R * 1.6); y = clamp(m.y + Math.sin(a) * d * 0.6, S.t + k.R * 1.8, S.b - k.R * 1.5);
-                if (!spotOK(x, y) || (ux != null && Math.hypot(x - ux, y - uy) < AVOID())) [x, y] = pickSpot(ux, uy, m.x, m.y);
-              } else [x, y] = pickSpot(ux, uy, S.l + Math.random() * (S.r - S.l), S.t + Math.random() * (S.b - S.t));
-              if (Math.hypot(x - m.x, y - m.y) > k.R * 0.6) { setStation(x, y); m.goTo(x, y); station.moving = true; station.stroll = 0.5 + Math.random() * 1.6; }
-              roam.at = now + 7 + Math.random() * 22;
+          // Free: it works out where it's best placed (place.js: the windows on screen, its bubble's room, its own
+          // cards and drawings, what it's talking about) whenever the screen's layout changes and now and then when
+          // idle, and goes there if that's clearly better. Idle, it sometimes swaps to another spot that's as good.
+          const P = R.place;
+          if (P && free() && !held && !pen.held && !dock && !station.moving && !hop.on && !b && !tool && !dying.length && now >= actUntil && !R.game) {
+            if (!roam.at) roam.at = now + 4;
+            const changed = P.rev !== roam.rev || P.target !== roam.target, idle = now > roam.at;
+            if ((changed || idle) && now > roam.hold) {
+              roam.rev = P.rev; roam.target = P.target; roam.at = now + 16 + Math.random() * 28; roam.hold = now + 1.5;
+              const here = [m.x, m.y], rad = k.R * 1.3;
+              const r = P.best({ screen: bounds(), windows: P.windows, rad, cursor: presence.cursor, here, avoid: R.ink?.rects?.() ?? [], target: P.target ?? null });
+              let go = r.here == null || r.score < r.here - 0.12 ? r : null;
+              if (!go && idle && !changed && Math.random() < 0.55) go = [r, ...r.others].filter((c) => Math.hypot(c.x - here[0], c.y - here[1]) > rad * 2 && c.score < r.here + 0.1)[0] ?? null;
+              if (go && go.score < 50 && Math.hypot(go.x - m.x, go.y - m.y) > k.R * 0.8 && !R.inkHit?.(go.x, go.y)) { setStation(go.x, go.y); m.goTo(go.x, go.y); station.moving = true; }
             }
-          } else if (b || tool || pen.held || held) roam.at = now + 6 + Math.random() * 8;
+          } else if (b || tool || pen.held || held) roam.hold = now + 2.5;
+          // It never glides: a move is a dash (there in a blink, its fragments streaking behind) or a phase (it
+          // comes apart here and together there). Far moves mostly phase, near ones mostly dash.
+          if (held || pen.held) { if (hop.on) { hop.on = false; R.jarvisFx = null; } }
+          else if (station.moving && !hop.on && R.jarvis && !station.byCursor && Math.hypot(station.x - m.x, station.y - m.y) > k.R * 0.5) {
+            const d = Math.hypot(station.x - m.x, station.y - m.y), phase = Math.random() < (d > k.R * 7 ? 0.7 : 0.25);
+            Object.assign(hop, { on: true, phase, x0: m.x, y0: m.y, x1: station.x, y1: station.y, t: 0, d, dur: phase ? 0.56 : clamp(0.16 + d / (k.R * 70), 0.18, 0.32) });
+          }
+          if (hop.on && !held && !pen.held && !(station.byCursor && presence.ptr)) m.drive = hopDrive;
           if (station.moving && Math.hypot(m.x - station.x, m.y - station.y) < k.R * 0.4) { station.moving = station.rush = false; station.stroll = null; m.mode = 'rest'; m.rest = 0.6; }
         }
         // Called over to the cursor: get there in well under a second, even from across the screen.

@@ -32,7 +32,7 @@ import { briefNote } from './brief.mjs';
 import { CHECK_MS, DEFAULT_DISTRACTIONS, check as focusCheck, parseDistractions, startBlock } from './focus.mjs';
 import { saveCardImage } from './cardimage.mjs';
 import { cleanWakeName, hasWakeWord, wakeGreeting, wakeName, wakesOnName } from './wakename.mjs';
-import { cleanColour, colourOf } from './colour.mjs';
+import { cleanColour, colourOf, layoutOf } from './colour.mjs';
 import { KEY_NAME as SYNC_KEY, MIN_PASSPHRASE, checkFolder, folderReady, merge as syncMerge, newDevice, prepareFolder, readRemotes, suggestFolders, tooMuchGone, writeOwn } from './sync.mjs';
 import { EMOTES, EchoFilter, ReplyStream } from './reply.mjs';
 import { downloadModel, isReady, modelDir, sizeLabel, totalBytes } from './voicemodel.mjs';
@@ -1699,6 +1699,20 @@ async function gameModeTick() {
   } finally { gameTicking = false; }
 }
 if (HANDS_OK) setInterval(() => gameModeTick().catch(() => {}), WIN ? 3000 : 30_000);
+// Where the windows are, for the overlay to work out where to be (roamies/place.js): only their rectangles and which
+// is in front, never titles or contents, and never Jarvis' own windows. Nothing kept or logged. Windows only for now.
+let layoutTicking = false, layoutSent = '';
+async function layoutTick() {
+  if (layoutTicking) return;
+  layoutTicking = true;
+  try {
+    const r = await Promise.race([hands('windows').catch(() => null), new Promise((res) => setTimeout(() => res(null), 1800))]);
+    if (!Array.isArray(r?.windows)) return;
+    const windows = layoutOf(r.windows), sig = JSON.stringify(windows);
+    if (sig !== layoutSent) { layoutSent = sig; ui({ kind: 'layout', windows }); }
+  } finally { layoutTicking = false; }
+}
+if (HANDS_OK && WIN) setInterval(() => layoutTick().catch(() => {}), 2500);
 
 // ---------- the list on screen ----------
 // Today / Later, drawn by the overlay next to Sidekick. seconds: how long it stays up (0 = just update it if it's open).

@@ -64,7 +64,12 @@
     // Voice level: rises while it talks or hears you, settles to a slow breath otherwise.
     level(st) {
       const t = st.t;
-      if (st.mode === 'talk' && st.voice != null) return clamp(st.voice * 1.25, 0, 1); // the real voice: closed in the gaps
+      if (st.mode === 'talk' && st.voice != null) {
+        // The real voice, measured against how loud this voice has been lately, so a quiet clip opens the globe as
+        // far as a loud one and every phrase is a full breath; in the gaps it closes.
+        st.vpk = Math.max(0.05, st.voice, (st.vpk ?? 0.2) * (1 - (st.dt ?? 0.016) * 0.25));
+        return clamp(Math.pow(st.voice / st.vpk, 0.7) * 1.1, 0, 1);
+      }
       if (st.mode === 'talk') return clamp(0.9 * Math.abs(Math.sin(t * 5.2)) * (0.55 + 0.45 * Math.abs(Math.sin(t * 1.7 + 1))), 0, 1);
       if (st.mode === 'listen') return clamp(st.heard ?? 0.35 + 0.3 * Math.abs(Math.sin(t * 4.1)), 0, 1);
       if (st.mode === 'think') return 0.25;
@@ -100,18 +105,22 @@
       const tk = st.think;
       // Swell: how far it has opened. It follows the voice closely (out fast, back a little slower), so it opens
       // on each syllable and closes in the gaps; a cheer pops it, thought holds it a touch open.
-      const want = sleepy ? 0.04 : mode === 'talk' ? 0.1 + 0.62 * v : mode === 'listen' ? 0.1 + 0.2 * v : thinking ? 0.1 + 0.006 * Math.sin(t * 3) : 0.1 + 0.02 * Math.sin(t * 1.4);
+      const want = sleepy ? 0.04 : mode === 'talk' ? 0.1 + 0.7 * v : mode === 'listen' ? 0.1 + 0.24 * v : thinking ? 0.1 + 0.006 * Math.sin(t * 3) : 0.1 + 0.02 * Math.sin(t * 1.4);
       const was = st.swell ?? 0;
       st.swell = was + (want - was) * Math.min(1, dt * (mode === 'talk' || mode === 'listen' ? (want > was ? 18 : 9) : 3));
       st.fold = (st.fold ?? 0) + ((sleepy ? 1 : 0) - (st.fold ?? 0)) * Math.min(1, dt * 3);
       const fold = st.fold, swell = st.swell, dim = fold > 0.5 ? 1 : 0;
       const wobble = st.dizzy > 0.5 ? Math.sin(t * 9) * 0.3 : 0;
       // It tips toward where it's looking, and sways.
-      const lean = turner(st.look[0] * 0.45, -0.42 + 0.1 * Math.sin(t * 0.41) + st.look[1] * 0.25 + wobble, 0.12 * Math.sin(t * 0.53));
+      // It keeps its own slow sway and never turns to the cursor.
+      const lean = turner(0.16 * Math.sin(t * 0.23), -0.42 + 0.1 * Math.sin(t * 0.41) + wobble, 0.12 * Math.sin(t * 0.53));
       // Squash from the body's bounces, and a shake when it's upset.
       const sq = st.sq ?? 0, sx = 1 + sq * 0.05, sy = 1 - sq * 0.04;
-      const shake = 0;
       const size = rad * (1 + swell); // asleep it dims and slows, but keeps its size
+      // Travelling (agent.js sets these): streak, a dash, where each fragment trails behind along the way by its
+      // own amount ([dx, dy] in radii, pointing back along the path); gone (0 to 1), a phase, where the globe comes
+      // apart into its fragments, which fly out and thin away, and comes together again at the other end.
+      const fx = st.fx ?? null, gone = clamp(fx?.gone ?? 0, 0, 1), trail = fx?.streak ?? null;
       // Detail by size: the fragments cover the globe about as densely at every size, and the nearest are written
       // out as letters of code once there's room. (In cells the radius is about 6 small, 13 default, 28 large, 56 huge.)
       const count = Math.round(clamp(rad * rad * 0.62, mini ? 46 : 96, FRAGS.length)), letters = rad >= 18, words = rad >= 11;
@@ -134,13 +143,15 @@
         if (f.shell === 1) for (const pl of PLATES) { const d = px * pl.x + y * pl.y + pz * pl.z; if (d > best) { next2 = best; best = d; P = pl; } else if (d > next2) next2 = d; }
         const outer = f.shell === 1;
         if (outer && !mini && (best - next2 < 0.03 || (P.open && f.kind > 0.14))) continue;
+        if (gone > 0 && f.far < gone * 1.05 - 0.05) continue;
         const lift = outer ? P.h + 0.035 * Math.sin(t * P.pace + P.phi) + (talking ? v * P.far * 0.24 : 0) + tk * 0.01 * Math.sin(t * 4 + P.phi) : 0;
-        const r = f.shell * (1 + lift + (f.far - 0.5) * 0.09 + (talking ? v * f.far * 0.1 : 0) + tk * 0.012 * Math.sin(t * 14 + f.phi));
+        const r = (1 + gone * (0.6 + f.kind * 2.6)) * f.shell * (1 + lift + (f.far - 0.5) * 0.09 + (talking ? v * f.far * 0.1 : 0) + tk * 0.012 * Math.sin(t * 14 + f.phi));
         const cs = Math.cos(st.spin), sn = Math.sin(st.spin);
         [px, pz] = [px * cs - pz * sn, px * sn + pz * cs];
         const q = lean([px * r, y * r, pz * r]);
         // Nearer is bigger: the front bulges toward you and the back falls away.
-        const s = 1 + q[2] * 0.3, x = Math.round(cx + q[0] * size * s * sx + shake), yy = Math.round(cy + q[1] * size * s * sy), z = q[2];
+        const lag = trail ? f.far * f.far * rad : 0;
+        const s = 1 + q[2] * 0.3, x = Math.round(cx + q[0] * size * s * sx + (trail ? trail[0] * lag : 0)), yy = Math.round(cy + q[1] * size * s * sy + (trail ? trail[1] * lag : 0)), z = q[2];
         const lit = Math.abs(y - front) < 0.12 || (st.happy > 0.5 && i % 7 === 0) || (talking && v > 0.55 && (i + Math.floor(t * 9)) % 8 === 0) || (i + Math.floor(t * 1.7 + f.phi)) % 23 === 0;
         // Far fragments are specks, nearer ones dashes (a word), the nearest are written out: a letter of code.
         // The far side shows through only as a scatter, so the heart is seen through the gaps.
@@ -151,12 +162,12 @@
         const rows = GLYPHS[(f.glyph + (thinking ? Math.floor(t * 14 + f.phi) : 0)) % GLYPHS.length], lvl = clamp(3 + (lit ? 1 : 0) - dim, 1, L);
         for (let gr = 0; gr < 5; gr++) for (let c = 0; c < 3; c++) if (rows[gr][c] === '#') put(x + c - 1, yy + gr - 2, lvl);
       }
-      if (mini) return;
-      // The heart, inside the globe: a bright diamond that swells with the voice, follows the cursor a little,
+      if (mini || gone > 0.6) return;
+      // The heart, inside the globe: a bright diamond that swells with the voice, 
       // closes to a line on a blink and dims to a dot asleep.
       const open = st.open;
       const hr = Math.max(1, Math.round(rad * (sleepy ? 0.06 : 0.09 + v * 0.05) * (A === 'hype' ? 1.25 : 1)));
-      const hx = Math.round(cx + st.look[0] * rad * 0.12 + shake), hy = Math.round(cy + st.look[1] * rad * 0.1);
+      const hx = Math.round(cx), hy = Math.round(cy);
       const hh = Math.max(0, Math.round(hr * (st.wide > 0.5 ? 1.25 : Math.min(1, open))));
       for (let y = -hr - 1; y <= hr + 1; y++) for (let x = -hr - 1; x <= hr + 1; x++) {
         const d = Math.abs(x) / (hr + 0.5) + Math.abs(y) / (hh + 0.5 || 0.5);

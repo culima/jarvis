@@ -1,5 +1,13 @@
 // The one colour everything is drawn in (Settings, Appearance, Colour): what can be saved, and why not. The pages
 // turn every shade toward it (roamies/theme.js, which knows the same names).
+/** The screen's layout as the overlay gets it: each window's rectangle and whether it's the front one. Titles and
+ *  app names stay behind, and Jarvis' own windows (the overlay covers the whole screen) are left out. */
+export const layoutOf = (list) => {
+  let front = false;
+  return (list ?? []).filter((w) => Array.isArray(w?.bounds) && w.bounds.length === 4 && !/^(roamies|jarvis)/i.test(String(w.app ?? ''))).slice(0, 12)
+    .map((w) => { const f = !!w.frontApp && !front; front ||= f; return { bounds: w.bounds.map(Math.round), front: f }; });
+};
+
 export const DEFAULT_COLOUR = '#a06bff';
 const NAMES = {
   violet: '#a06bff', purple: '#a06bff', lila: '#a06bff', lilac: '#b79bff', pink: '#ff7ad1', magenta: '#ff5ce0', red: '#ff5a5a', green: '#5dff8f',
